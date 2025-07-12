@@ -11,6 +11,7 @@ import CoreData
 struct ContentView: View {
     @EnvironmentObject private var semesterViewModel: SemesterViewModel
     @EnvironmentObject private var subjectViewModel: SubjectViewModel
+    @EnvironmentObject private var scheduleViewModel: ScheduleViewModel
     
     var body: some View {
         
@@ -29,7 +30,7 @@ struct ContentView: View {
                 
             } .tabItem {
                 Image(systemName: "calendar")
-                Text("Home")
+                Text("Schedules")
             }
             
             NavigationStack{
@@ -48,9 +49,16 @@ struct ContentView: View {
                 .presentationDragIndicator(.visible)
             
         }
+        
+        .sheet(isPresented: $scheduleViewModel.presentScheduleCreateSheet ){
+            CreateScheduleSheet()
+                .presentationDragIndicator(.visible)
+            
+        }
     }
 }
 #Preview {
     ContentView()
         .environmentObject(SubjectViewModel()).environmentObject(SemesterViewModel())
+        .environmentObject(ScheduleViewModel())
 }

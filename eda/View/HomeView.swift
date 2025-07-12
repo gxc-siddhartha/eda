@@ -10,6 +10,7 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var semesterViewModel: SemesterViewModel
     @EnvironmentObject private var subjectViewModel: SubjectViewModel
+    @EnvironmentObject private var scheduleViewModel: ScheduleViewModel
     
     @State private var presentConfirmationDialog : Bool = false
     
@@ -36,6 +37,12 @@ struct HomeView: View {
         .confirmationDialog("Add Components", isPresented: $presentConfirmationDialog) {
             Button("Add Subject") {
                 subjectViewModel.presentSubjectCreateSheet = true
+            }
+            
+            if(!subjectViewModel.subjectsList.isEmpty) {
+                Button("Add Schedule") {
+                    scheduleViewModel.presentScheduleCreateSheet = true
+                }
             }
         }
         .task {

@@ -14,6 +14,7 @@ struct edaApp: App {
     private let subjectRepository = SubjectRepository()
        @StateObject private var semesterViewModel = SemesterViewModel()
        @StateObject private var subjectViewModel = SubjectViewModel()
+       @StateObject private var scheduleViewModel = ScheduleViewModel()
 
     var body: some Scene {
         WindowGroup {
@@ -21,10 +22,14 @@ struct edaApp: App {
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .environmentObject(semesterViewModel)
                 .environmentObject(subjectViewModel)
+                .environmentObject(scheduleViewModel)
                 .task {
                     await semesterViewModel.initialize()
                     if(semesterViewModel.selectedSemesterForUser != nil) {
                         await subjectViewModel.initialize(with: semesterViewModel.selectedSemesterForUser!)
+                        if(!subjectViewModel.subjectsList.isEmpty) {
+                            await scheduleViewModel.initialize(with: semesterViewModel.selectedSemesterForUser!)
+                        }
                     }
                 }
         }

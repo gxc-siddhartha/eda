@@ -20,8 +20,18 @@ struct CreateSemesterSheet: View {
                     
                     }.pickerStyle(.menu).frame(height:22)
                     
+                  
+                  
+                }
+                
+                Section("Start Date") {
                     DatePicker("Start Date", selection: $semesterViewModel.semesterStartDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                }
+                
+                Section("Start Date") {
                     DatePicker("Start Date", selection: $semesterViewModel.semesterEndDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
                 }
                 
                 Section("Attendance Percentage") {
