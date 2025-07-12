@@ -1,9 +1,39 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="1" systemVersion="11A491" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="false" userDefinedModelVersionIdentifier="">
-    <entity name="Item" representedClassName="Item" syncable="YES" codeGenerationType="class">
-        <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23788.4" systemVersion="24F74" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="Attendance" representedClassName="Attendance" syncable="YES" codeGenerationType="class">
+        <attribute name="attendanceEvent" optional="YES" attributeType="String"/>
+        <attribute name="attendanceId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="attendancePresence" optional="YES" attributeType="String"/>
+        <attribute name="attendanceType" optional="YES" attributeType="String"/>
+        <relationship name="schedule" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Schedule" inverseName="attendances" inverseEntity="Schedule"/>
     </entity>
-    <elements>
-        <element name="Item" positionX="-63" positionY="-18" width="128" height="44"/>
-    </elements>
+    <entity name="Schedule" representedClassName="Schedule" syncable="YES" codeGenerationType="class">
+        <attribute name="scheduleDay" optional="YES" attributeType="String"/>
+        <attribute name="scheduleEndTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="scheduleId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="scheduleLocation" optional="YES" attributeType="String"/>
+        <attribute name="scheduleStartTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="attendances" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Attendance" inverseName="schedule" inverseEntity="Attendance"/>
+        <relationship name="subject" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="Subject" inverseName="schedules" inverseEntity="Subject"/>
+    </entity>
+    <entity name="Semester" representedClassName="Semester" syncable="YES" codeGenerationType="class">
+        <attribute name="passingPercentage" optional="YES" attributeType="String"/>
+        <attribute name="semesterEndDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="semesterId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="semesterName" optional="YES" attributeType="String"/>
+        <attribute name="semesterStartDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="subjects" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Subject" inverseName="semester" inverseEntity="Subject"/>
+    </entity>
+    <entity name="Subject" representedClassName="Subject" syncable="YES" codeGenerationType="class">
+        <attribute name="subjectColor" optional="YES" attributeType="String"/>
+        <attribute name="subjectIcon" optional="YES" attributeType="String"/>
+        <attribute name="subjectId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="subjectName" optional="YES" attributeType="String"/>
+        <attribute name="subjectTeacher" optional="YES" attributeType="String"/>
+        <relationship name="schedules" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Schedule" inverseName="subject" inverseEntity="Schedule"/>
+        <relationship name="semester" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="Semester" inverseName="subjects" inverseEntity="Semester"/>
+    </entity>
+    <entity name="User" representedClassName="User" syncable="YES" codeGenerationType="class">
+        <attribute name="selectedSemester" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+    </entity>
 </model>
