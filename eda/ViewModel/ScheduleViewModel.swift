@@ -150,6 +150,7 @@ class ScheduleViewModel: ObservableObject {
     @Published var scheduleDay: String = "Monday"
     @Published var scheduleLocation: String = ""
     @Published var selectedSubject: Subject? = nil
+    @Published var schedulesForSelectedDate: [Schedule] = []
     
     // MARK: - UI State
     @Published var presentScheduleCreateSheet: Bool = false
@@ -211,10 +212,35 @@ class ScheduleViewModel: ObservableObject {
         }
     }
     
+    func loadSchedulesForScheduleView(for date: Date, semester: Semester?) async throws {
+        if semester == nil {
+            logger.warning("⚠️loadSchedulesForScheduleView - Cannot load schedules: no semester selected")
+            loadingState = .failure(.noSemesterSelected)
+            return
+        }
+        
+        logger.info("📅 Loading schedules for date: \(date) in semester: \(semester!.semesterName ?? "unknown")")
+        loadingState = .loading
+        
+        do {
+            let schedules = try await withTimeout(operationTimeout) {
+                try await self.repository.getAllSchedules(for: date, semester: semester!)
+            }
+            schedulesForSelectedDate = schedules
+            
+            logger.info("✅ loadSchedulesForScheduleView: Successfully loaded \(schedules.count) schedules")
+            
+        } catch {
+            let wrappedError = await wrapError(error, context: "loading schedules")
+            loadingState = .failure(wrappedError)
+            throw wrappedError
+        }
+    }
+    
     // MARK: - Core Operations
     func loadSchedules(for date: Date, semester: Semester?) async throws {
         if semester == nil {
-            logger.warning("⚠️ Cannot load schedules: no semester selected")
+            logger.warning("⚠️loadSchedulesForScheduleView: Cannot load schedules: no semester selected")
             loadingState = .failure(.noSemesterSelected)
             return
         }
@@ -232,6 +258,8 @@ class ScheduleViewModel: ObservableObject {
             // Update today's schedules if selected date is today
             if Calendar.current.isDateInToday(date) {
                 todaySchedules = schedules
+            } else{
+                todaySchedules = []
             }
             
             logger.info("✅ Successfully loaded \(schedules.count) schedules")
@@ -305,7 +333,8 @@ class ScheduleViewModel: ObservableObject {
                     todaySchedules = schedulesList
                 }
             }
-            
+        
+            await checkCurrentlyActiveSchedule(for: semester)
             // Clear form and close sheet
             clearForm()
             presentScheduleCreateSheet = false

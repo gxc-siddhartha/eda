@@ -231,128 +231,169 @@ class ScheduleRepository {
     
     // MARK: - Get All Schedules for a Date
     func getAllSchedules(for date: Date, semester: Semester) async throws -> [Schedule] {
-        self.logger.debug("📋 Fetching schedules for date: \(date)")
-        
-        return try await withCheckedThrowingContinuation { continuation in
-            backgroundContext.perform {
-                do {
-                    // Get semester in background context
-                    guard let backgroundSemester = try? self.backgroundContext.existingObject(with: semester.objectID) as? Semester else {
-                        let error = ScheduleRepositoryError.semesterNotFound("Semester not found in background context")
-                        self.logger.error("❌ \(error.localizedDescription)")
+            self.logger.debug("📋 Fetching schedules for date: \(date)")
+            
+            return try await withCheckedThrowingContinuation { continuation in
+                backgroundContext.perform {
+                    do {
+                        // Get semester in background context
+                        guard let backgroundSemester = try? self.backgroundContext.existingObject(with: semester.objectID) as? Semester else {
+                            let error = ScheduleRepositoryError.semesterNotFound("Semester not found in background context")
+                            self.logger.error("❌ \(error.localizedDescription)")
+                            continuation.resume(throwing: error)
+                            return
+                        }
+                        
+                        // Validate that the date is within semester range
+                        guard let semesterStartDate = backgroundSemester.semesterStartDate,
+                              let semesterEndDate = backgroundSemester.semesterEndDate else {
+                            let error = ScheduleRepositoryError.invalidScheduleData("Semester start or end date is missing")
+                            self.logger.error("❌ \(error.localizedDescription)")
+                            continuation.resume(throwing: error)
+                            return
+                        }
+                        
+                        // Check if the requested date falls within semester date range
+                        let calendar = Calendar.current
+                        let dateOnly = calendar.startOfDay(for: date)
+                        let startDateOnly = calendar.startOfDay(for: semesterStartDate)
+                        let endDateOnly = calendar.startOfDay(for: semesterEndDate)
+                        
+                        guard dateOnly >= startDateOnly && dateOnly <= endDateOnly else {
+                            self.logger.warning("⚠️ Requested date \(date) is outside semester range (\(semesterStartDate) - \(semesterEndDate))")
+                            // Return empty array instead of error for dates outside semester range
+                            continuation.resume(returning: [])
+                            return
+                        }
+                        
+                        // Get day name from date
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "EEEE" // Full day name (Monday, Tuesday, etc.)
+                        let dayName = formatter.string(from: date)
+                        
+                        let fetchRequest: NSFetchRequest<Schedule> = Schedule.fetchRequest()
+                        fetchRequest.predicate = NSPredicate(
+                            format: "scheduleDay == %@ AND subject.semester == %@",
+                            dayName,
+                            backgroundSemester
+                        )
+                        
+                        // Sort by start time
+                        fetchRequest.sortDescriptors = [
+                            NSSortDescriptor(key: "scheduleStartTime", ascending: true)
+                        ]
+                        
+                        let backgroundSchedules = try self.backgroundContext.fetch(fetchRequest)
+                        
+                        // Convert to main context objects
+                        let mainContextSchedules = try backgroundSchedules.map { schedule in
+                            try self.persistentContainer.viewContext.existingObject(with: schedule.objectID) as! Schedule
+                        }
+                        
+                        self.logger.info("✅ Fetched \(mainContextSchedules.count) schedules for \(dayName) within semester range")
+                        continuation.resume(returning: mainContextSchedules)
+                        
+                    } catch let error as ScheduleRepositoryError {
                         continuation.resume(throwing: error)
-                        return
+                    } catch {
+                        let wrappedError = ScheduleRepositoryError.coreDataError("Failed to fetch schedules: \(error.localizedDescription)")
+                        self.logger.error("❌ \(wrappedError.localizedDescription)")
+                        continuation.resume(throwing: wrappedError)
                     }
-                    
-                    // Get day name from date
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "EEEE" // Full day name (Monday, Tuesday, etc.)
-                    let dayName = formatter.string(from: date)
-                    
-                    let fetchRequest: NSFetchRequest<Schedule> = Schedule.fetchRequest()
-                    fetchRequest.predicate = NSPredicate(
-                        format: "scheduleDay == %@ AND subject.semester == %@",
-                        dayName,
-                        backgroundSemester
-                    )
-                    
-                    // Sort by start time
-                    fetchRequest.sortDescriptors = [
-                        NSSortDescriptor(key: "scheduleStartTime", ascending: true)
-                    ]
-                    
-                    let backgroundSchedules = try self.backgroundContext.fetch(fetchRequest)
-                    
-                    // Convert to main context objects
-                    let mainContextSchedules = try backgroundSchedules.map { schedule in
-                        try self.persistentContainer.viewContext.existingObject(with: schedule.objectID) as! Schedule
-                    }
-                    
-                    self.logger.info("✅ Fetched \(mainContextSchedules.count) schedules for \(dayName)")
-                    continuation.resume(returning: mainContextSchedules)
-                    
-                } catch let error as ScheduleRepositoryError {
-                    continuation.resume(throwing: error)
-                } catch {
-                    let wrappedError = ScheduleRepositoryError.coreDataError("Failed to fetch schedules: \(error.localizedDescription)")
-                    self.logger.error("❌ \(wrappedError.localizedDescription)")
-                    continuation.resume(throwing: wrappedError)
                 }
             }
         }
-    }
 
     func getCurrentlyActiveSchedule(for semester: Semester) async throws -> Schedule? {
-        self.logger.debug("🔍 Checking for currently active schedule in semester: \(semester.semesterName ?? "unknown")")
-        
-        return try await withCheckedThrowingContinuation { continuation in
-            backgroundContext.perform {
-                do {
-                    // Validate semester ID first
-                    guard let semesterId = semester.semesterId else {
-                        self.logger.error("❌ Semester ID is nil")
-                        continuation.resume(returning: nil)
-                        return
+            self.logger.debug("🔍 Checking for currently active schedule in semester: \(semester.semesterName ?? "unknown")")
+            
+            return try await withCheckedThrowingContinuation { continuation in
+                backgroundContext.perform {
+                    do {
+                        // Validate semester ID first
+                        guard let semesterId = semester.semesterId else {
+                            self.logger.error("❌ Semester ID is nil")
+                            continuation.resume(returning: nil)
+                            return
+                        }
+                        
+                        let now = Date()
+                        let calendar = Calendar.current
+                        
+                        // Fetch semester in background context
+                        let semesterFetchRequest: NSFetchRequest<Semester> = Semester.fetchRequest()
+                        semesterFetchRequest.predicate = NSPredicate(format: "semesterId == %@", semesterId as CVarArg)
+                        semesterFetchRequest.fetchLimit = 1
+                        
+                        let backgroundSemesters = try self.backgroundContext.fetch(semesterFetchRequest)
+                        
+                        guard let backgroundSemester = backgroundSemesters.first else {
+                            self.logger.error("❌ Semester not found in background context")
+                            continuation.resume(returning: nil)
+                            return
+                        }
+                        
+                        // Validate that the current date is within semester range
+                        guard let semesterStartDate = backgroundSemester.semesterStartDate,
+                              let semesterEndDate = backgroundSemester.semesterEndDate else {
+                            self.logger.warning("⚠️ Semester start or end date is missing")
+                            continuation.resume(returning: nil)
+                            return
+                        }
+                        
+                        // Check if the current date falls within semester date range
+                        let currentDateOnly = calendar.startOfDay(for: now)
+                        let startDateOnly = calendar.startOfDay(for: semesterStartDate)
+                        let endDateOnly = calendar.startOfDay(for: semesterEndDate)
+                        
+                        guard currentDateOnly >= startDateOnly && currentDateOnly <= endDateOnly else {
+                            self.logger.info("ℹ️ Current date \(now) is outside semester range (\(semesterStartDate) - \(semesterEndDate))")
+                            continuation.resume(returning: nil)
+                            return
+                        }
+                        
+                        // Get current day name
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "EEEE"
+                        let currentDay = formatter.string(from: now)
+                        
+                        // Calculate current time in minutes
+                        let currentHour = calendar.component(.hour, from: now)
+                        let currentMinute = calendar.component(.minute, from: now)
+                        let currentTotalMinutes = currentHour * 60 + currentMinute
+                        
+                        // Fetch all schedules for current day in this semester
+                        let scheduleFetchRequest: NSFetchRequest<Schedule> = Schedule.fetchRequest()
+                        scheduleFetchRequest.predicate = NSPredicate(
+                            format: "scheduleDay == %@ AND subject.semester == %@",
+                            currentDay,
+                            backgroundSemester
+                        )
+                        
+                        let todaySchedules = try self.backgroundContext.fetch(scheduleFetchRequest)
+                        
+                        // Find the currently active schedule
+                        let activeSchedule = try self.findActiveSchedule(
+                            from: todaySchedules,
+                            currentTotalMinutes: currentTotalMinutes,
+                            calendar: calendar
+                        )
+                        
+                        if let activeSchedule = activeSchedule {
+                            self.logger.info("✅ Found active schedule: \(activeSchedule.subject?.subjectName ?? "unknown")")
+                        } else {
+                            self.logger.info("ℹ️ No currently active schedule found for semester: \(semester.semesterName ?? "unknown")")
+                        }
+                        
+                        continuation.resume(returning: activeSchedule)
+                        
+                    } catch {
+                        self.logger.error("❌ Failed to check for active schedule: \(error.localizedDescription)")
+                        continuation.resume(throwing: error)
                     }
-                    
-                    let now = Date()
-                    let calendar = Calendar.current
-                    
-                    // Get current day name
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "EEEE"
-                    let currentDay = formatter.string(from: now)
-                    
-                    // Calculate current time in minutes
-                    let currentHour = calendar.component(.hour, from: now)
-                    let currentMinute = calendar.component(.minute, from: now)
-                    let currentTotalMinutes = currentHour * 60 + currentMinute
-                    
-                    // Fetch semester in background context
-                    let semesterFetchRequest: NSFetchRequest<Semester> = Semester.fetchRequest()
-                    semesterFetchRequest.predicate = NSPredicate(format: "semesterId == %@", semesterId as CVarArg)
-                    semesterFetchRequest.fetchLimit = 1
-                    
-                    let backgroundSemesters = try self.backgroundContext.fetch(semesterFetchRequest)
-                    
-                    guard let backgroundSemester = backgroundSemesters.first else {
-                        self.logger.error("❌ Semester not found in background context")
-                        continuation.resume(returning: nil)
-                        return
-                    }
-                    
-                    // Fetch all schedules for current day in this semester
-                    let scheduleFetchRequest: NSFetchRequest<Schedule> = Schedule.fetchRequest()
-                    scheduleFetchRequest.predicate = NSPredicate(
-                        format: "scheduleDay == %@ AND subject.semester == %@",
-                        currentDay,
-                        backgroundSemester
-                    )
-                    
-                    let todaySchedules = try self.backgroundContext.fetch(scheduleFetchRequest)
-                    
-                    // Find the currently active schedule
-                    let activeSchedule = try self.findActiveSchedule(
-                        from: todaySchedules,
-                        currentTotalMinutes: currentTotalMinutes,
-                        calendar: calendar
-                    )
-                    
-                    if let activeSchedule = activeSchedule {
-                        self.logger.info("✅ Found active schedule: \(activeSchedule.subject?.subjectName ?? "unknown")")
-                    } else {
-                        self.logger.info("ℹ️ No currently active schedule found for semester: \(semester.semesterName ?? "unknown")")
-                    }
-                    
-                    continuation.resume(returning: activeSchedule)
-                    
-                } catch {
-                    self.logger.error("❌ Failed to check for active schedule: \(error.localizedDescription)")
-                    continuation.resume(throwing: error)
                 }
             }
         }
-    }
 
     // MARK: - Helper Methods
     

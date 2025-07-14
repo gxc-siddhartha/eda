@@ -22,7 +22,8 @@ struct CreateScheduleSheet: View {
                                 .tag(subject)
                         }
                         
-                    }.onAppear {
+                    }.pickerStyle(.menu)
+                        .onAppear {
                         Task {
                             if(!subjectViewModel.subjectsList.isEmpty) {
                                 scheduleViewModel.selectedSubject = subjectViewModel.subjectsList.first
@@ -45,10 +46,10 @@ struct CreateScheduleSheet: View {
                         TextField("San Jose Public Library", text: $scheduleViewModel.scheduleLocation)
                     }
                     
-                    DatePicker("Start Time", selection: $scheduleViewModel.scheduleStartTime, displayedComponents: .hourAndMinute).datePickerStyle(.wheel)
-                    DatePicker("End Time", selection: $scheduleViewModel.scheduleEndTime, displayedComponents: .hourAndMinute).datePickerStyle(.wheel)
+                    DatePicker("Start Time", selection: $scheduleViewModel.scheduleStartTime, displayedComponents: .hourAndMinute)
+                    DatePicker("End Time", selection: $scheduleViewModel.scheduleEndTime, displayedComponents: .hourAndMinute)
                 }
-            }.navigationTitle(Text("Create Subject")).navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle(Text("Create Scheduel")).navigationBarTitleDisplayMode(.inline)
                 .toolbarBackgroundVisibility(.visible, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {

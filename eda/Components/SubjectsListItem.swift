@@ -12,7 +12,10 @@ struct SubjectsListItem: View {
     var body: some View {
         HStack(alignment: .center) {
             Image(systemName: subject.subjectIcon ?? "network")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
                 .foregroundStyle(Color("a\(subject.subjectColor ?? "Blue")"))
+                .frame(width: 20, height:20)
                 .padding()
             Text(subject.subjectName ?? "Untitled Subject").font(.headline)
             Spacer()

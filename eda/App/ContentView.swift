@@ -12,6 +12,7 @@ struct ContentView: View {
     @EnvironmentObject private var semesterViewModel: SemesterViewModel
     @EnvironmentObject private var subjectViewModel: SubjectViewModel
     @EnvironmentObject private var scheduleViewModel: ScheduleViewModel
+    @EnvironmentObject private var attendanceViewModel: AttendanceViewModel
     
     var body: some View {
         
@@ -32,14 +33,6 @@ struct ContentView: View {
                 Image(systemName: "calendar")
                 Text("Schedules")
             }
-            
-            NavigationStack{
-                SettingsView()
-                
-            }.tabItem {
-                Image(systemName: "gear")
-                Text("Settings")
-            }
         }
         .sheet(isPresented: $semesterViewModel.presentSemesterDetailsSheet ){
             CreateSemesterSheet()
@@ -55,10 +48,16 @@ struct ContentView: View {
                 .presentationDragIndicator(.visible)
             
         }
+        .sheet(isPresented: $attendanceViewModel.presentAttendanceCreateSheet ){
+            CreateAttendanceSheet()
+                .presentationDragIndicator(.visible)
+            
+        }
     }
 }
 #Preview {
     ContentView()
         .environmentObject(SubjectViewModel()).environmentObject(SemesterViewModel())
         .environmentObject(ScheduleViewModel())
+        .environmentObject(AttendanceViewModel())
 }

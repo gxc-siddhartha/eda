@@ -28,13 +28,17 @@ struct CreateSubjectSheet: View {
                 
                 Section("Subject Color") {
                     HStack {
-                        Circle().fill(Color("a\(subjectViewModel.subjectColor)")).frame(width:20, height:20)
+                    
                         Picker("Select Color", selection: $subjectViewModel.subjectColor) {
                             ForEach(subjectViewModel.availableColors, id: \.self) {color in
-                                Text(color)
+                                HStack {
+                                    Circle().fill(Color("a\(color)")).frame(width:15, height:15)
+                                    Text(color)
+
+                                }
                             
                             }
-                        }.pickerStyle(.menu).frame(height:22)
+                        }.pickerStyle(.navigationLink).frame(height:22)
                     }
                 }
                 
@@ -51,7 +55,7 @@ struct CreateSubjectSheet: View {
                                 Image(systemName: icon)
                             
                             }
-                        }.pickerStyle(.menu).frame(height:22)
+                        }.pickerStyle(.navigationLink).frame(height:22)
                     }
                     
                 }
@@ -78,9 +82,9 @@ struct CreateSubjectSheet: View {
                         }
                     }
                 }
-                .alert(isPresented: $semesterViewModel.showErrorAlert, content: {
-                    Alert(title: Text(semesterViewModel.alertTitle), message: Text(semesterViewModel.alertMessage), dismissButton: .default(Text("Ok")))
-                })
+//                .alert(isPresented: $semesterViewModel.showErrorAlert, content: {
+//                    Alert(title: Text(semesterViewModel.alertTitle), message: Text(semesterViewModel.alertMessage), dismissButton: .default(Text("Ok")))
+//                })
                 
         }
     }

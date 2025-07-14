@@ -15,6 +15,7 @@ struct edaApp: App {
        @StateObject private var semesterViewModel = SemesterViewModel()
        @StateObject private var subjectViewModel = SubjectViewModel()
        @StateObject private var scheduleViewModel = ScheduleViewModel()
+       @StateObject private var attendanceViewModel = AttendanceViewModel()
 
     var body: some Scene {
         WindowGroup {
@@ -23,6 +24,7 @@ struct edaApp: App {
                 .environmentObject(semesterViewModel)
                 .environmentObject(subjectViewModel)
                 .environmentObject(scheduleViewModel)
+                .environmentObject(attendanceViewModel)
                 .task {
                     await semesterViewModel.initialize()
                     if(semesterViewModel.selectedSemesterForUser != nil) {

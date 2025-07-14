@@ -6,20 +6,41 @@
 //
 
 import SwiftUI
+import Foundation
+
 
 struct HomeView: View {
     @EnvironmentObject private var semesterViewModel: SemesterViewModel
     @EnvironmentObject private var subjectViewModel: SubjectViewModel
     @EnvironmentObject private var scheduleViewModel: ScheduleViewModel
+    @EnvironmentObject private var attendanceViewModel: AttendanceViewModel
     
     @State private var presentConfirmationDialog : Bool = false
     
     var body: some View {
         List {
+            if(!$scheduleViewModel.todaySchedules.isEmpty) {
+                Section("Today's Events") {
+                    TodaysEventsItem(todaysSchedules: scheduleViewModel.todaySchedules).listRowInsets(EdgeInsets())
+                }
+              
+            }
+            if(scheduleViewModel.hasActiveSchedule) {
+                Section("Ongoing") {
+                    NavigationLink(destination: AttendanceView(subject: scheduleViewModel.currentActiveSchedule!.subject!)){
+                        ActiveScheduleItem(schedule: scheduleViewModel.currentActiveSchedule! )
+                    }.padding(.trailing, 16)
+                }.listRowInsets(EdgeInsets())
+            }
+        
+            
             if(!subjectViewModel.subjectsList.isEmpty) {
                 Section("My Subjects") {
                     ForEach(subjectViewModel.subjectsList, id: \.subjectId) { subject in
-                        SubjectsListItem(subject: subject)
+                        NavigationLink(destination: AttendanceView(subject: subject)) {
+                            SubjectsListItem(subject: subject)
+
+                        }.padding(.trailing, 16)
                     }
                     .listRowInsets(EdgeInsets())
                 }
@@ -44,6 +65,12 @@ struct HomeView: View {
                     scheduleViewModel.presentScheduleCreateSheet = true
                 }
             }
+            
+            
+                Button("Add Attendance Log") {
+                    attendanceViewModel.presentAttendanceCreateSheet = true
+                }
+            
         }
         .task {
             // Initialize if not already done
@@ -108,7 +135,14 @@ struct HomeView: View {
                         try? await semesterViewModel.selectSemester(semester)
                         try? await subjectViewModel.loadSubjects(semester: semester)
                         
-                    }
+                       
+                          try await scheduleViewModel.loadSchedules(for: Date(), semester: semester)
+                       
+              
+                            await scheduleViewModel.checkCurrentlyActiveSchedule(for: semester)
+                        }
+                        
+                    
                 } label: {
                     HStack {
                         Text(semester.semesterName ?? "Unknown Semester")
@@ -158,16 +192,11 @@ struct HomeView: View {
             Text("Schedule")
         }
         
-        NavigationStack {
-            SettingsView()
-        }
-        .tabItem {
-            Image(systemName: "gear")
-            Text("Settings")
-        }
+
     }
     .environmentObject(SemesterViewModel())
     .environmentObject(SubjectViewModel())
+    .environmentObject(ScheduleViewModel())
 }
 
 // You'll also need these placeholder views for the preview
