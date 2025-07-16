@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct CreateSubjectSheet: View {
+struct EditSubjectSheet: View {
     @EnvironmentObject  var semesterViewModel : SemesterViewModel
     @EnvironmentObject  var subjectViewModel : SubjectViewModel
     
@@ -25,7 +25,6 @@ struct CreateSubjectSheet: View {
                     }
                     
                 }
-                
                 Section("Subject Color") {
                     HStack {
                     
@@ -59,24 +58,25 @@ struct CreateSubjectSheet: View {
                     }
                     
                 }
-            }.navigationTitle(Text("Create Subject")).navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle(Text("Edit \(subjectViewModel.subjectName)")).navigationBarTitleDisplayMode(.inline)
                 .toolbarBackgroundVisibility(.visible, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             Task {
-                                if(subjectViewModel.isFormValid) {
-                                   _ = try await subjectViewModel.createSubject(semester: semesterViewModel.selectedSemesterForUser)
-                                }
+                               
+                                   _ = try await subjectViewModel.updateSubject(semester: semesterViewModel.selectedSemesterForUser)
+                               
+                                
                             }
                         } label: {
-                            Text("Done").disabled(!subjectViewModel.isFormValid)
+                            Text("Done")
                         }
                     }
                     
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
-                            subjectViewModel.presentSubjectCreateSheet = false
+                            subjectViewModel.presentSubjectEditSheet = false
                         } label: {
                             Text("Close")
                         }
@@ -91,6 +91,6 @@ struct CreateSubjectSheet: View {
 }
 
 #Preview {
-    CreateSubjectSheet().environmentObject(SubjectViewModel())
+    EditSubjectSheet().environmentObject(SubjectViewModel())
         .environmentObject(SemesterViewModel())
 }

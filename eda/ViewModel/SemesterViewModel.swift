@@ -110,7 +110,8 @@ enum LoadingState {
 
 @MainActor
 class SemesterViewModel: ObservableObject {
-    
+    private var masterViewModel: MasterViewModel = MasterViewModel.shared
+
     // MARK: - Dependencies
     private let repository: SemesterRepository
     private let logger = Logger(subsystem: "com.eda.app", category: "SemesterViewModel")
@@ -121,11 +122,16 @@ class SemesterViewModel: ObservableObject {
     @Published var loadingState: LoadingState = .idle
     @Published var isInitialized: Bool = false
     
+    // MARK: - Info Alert Properties
+    @Published var showInfoAlert: Bool = false
+    @Published var infoAlertTitle: String = ""
+    @Published var infoAlertMessage: String = ""
+    
     // MARK: - Form Properties
     @Published var selectedSemesterName: String = "Semester 1"
     @Published var semesterStartDate: Date = Date()
     @Published var semesterEndDate: Date = Date()
-    @Published var passingPercentage: String = "40"
+    @Published var passingPercentage: String = ""
     
     // MARK: - UI State
     @Published var presentSemesterDetailsSheet: Bool = false
@@ -269,9 +275,22 @@ class SemesterViewModel: ObservableObject {
             // Clear form and close sheet
             clearForm()
             presentSemesterDetailsSheet = false
+
             loadingState = .success
-            
-//            await showSuccess(title: "Semester Created", message: "'\(newSemester.semesterName ?? "New semester")' has been created successfully!")
+
+            try? await Task.sleep(nanoseconds: 500_000_000)
+//            
+//            await MainActor.run {
+//                self.showInfoAlert = true
+//                self.infoAlertTitle = "Semester Added"
+//                self.infoAlertMessage = "\(selectedSemesterName) is added to your list."
+//            }
+//            
+            await MainActor.run {
+                self.masterViewModel.showAlert = true
+                self.masterViewModel.alertTitle = "Semester Added"
+                self.masterViewModel.alertMessage = "\(selectedSemesterName) is added to your semesters' list. You can now add subjects to this semester."
+            }
             
             logger.info("✅ Semester created successfully: \(newSemester.semesterName ?? "unnamed")")
             return newSemester
@@ -432,7 +451,7 @@ class SemesterViewModel: ObservableObject {
         
         logger.error("❌ Error in \(operation): \(wrappedError.localizedDescription)")
         
-        alertTitle = "Error"
+        alertTitle = "Oops, we got stuck!"
         alertMessage = wrappedError.localizedDescription
         showRetryOption = showRetry
         showErrorAlert = true
@@ -492,9 +511,13 @@ class SemesterViewModel: ObservableObject {
     
     var isFormValid: Bool {
         let trimmedName = selectedSemesterName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPassingPercentage = passingPercentage.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmedName.isEmpty &&
                trimmedName.count >= 2 &&
                trimmedName.count <= 50 &&
+        Int(trimmedPassingPercentage) != nil &&
+        Int(trimmedPassingPercentage)! >= 0 &&
+        Int(trimmedPassingPercentage)! <= 100 &&
                semesterStartDate <= semesterEndDate
     }
     

@@ -19,7 +19,7 @@ struct CreateScheduleSheet: View {
                     Picker("Select Subject", selection: $scheduleViewModel.selectedSubject) {
                         ForEach(subjectViewModel.subjectsList, id: \.subjectId) { subject in
                             Text(subject.subjectName ?? "")
-                                .tag(subject)
+                                .tag(Optional(subject))
                         }
                         
                     }.pickerStyle(.menu)
@@ -49,7 +49,7 @@ struct CreateScheduleSheet: View {
                     DatePicker("Start Time", selection: $scheduleViewModel.scheduleStartTime, displayedComponents: .hourAndMinute)
                     DatePicker("End Time", selection: $scheduleViewModel.scheduleEndTime, displayedComponents: .hourAndMinute)
                 }
-            }.navigationTitle(Text("Create Scheduel")).navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle(Text("Create Schedule")).navigationBarTitleDisplayMode(.inline)
                 .toolbarBackgroundVisibility(.visible, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {

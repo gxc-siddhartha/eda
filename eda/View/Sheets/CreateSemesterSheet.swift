@@ -23,24 +23,25 @@ struct CreateSemesterSheet: View {
                   
                   
                 }
+                Section("Attendance Requirement") {
+                    HStack {
+                        Text("Percentage").padding(.trailing)
+                        TextField("75", text: $semesterViewModel.passingPercentage)
+                    }
+                    
+                }
                 
                 Section("Start Date") {
                     DatePicker("Start Date", selection: $semesterViewModel.semesterStartDate, displayedComponents: .date)
                         .datePickerStyle(.graphical)
                 }
                 
-                Section("Start Date") {
+                Section("End Date") {
                     DatePicker("Start Date", selection: $semesterViewModel.semesterEndDate, displayedComponents: .date)
                         .datePickerStyle(.graphical)
                 }
                 
-                Section("Attendance Percentage") {
-                    HStack {
-
-                        TextField("Attendance Threshold", text: $semesterViewModel.passingPercentage)
-                    }
-                    
-                }
+                
             }.navigationTitle(Text("Create Semester")).navigationBarTitleDisplayMode(.inline)
                 .toolbarBackgroundVisibility(.visible, for: .navigationBar)
                 .toolbar {
@@ -60,7 +61,7 @@ struct CreateSemesterSheet: View {
                         Button {
                             semesterViewModel.presentSemesterDetailsSheet = false
                         } label: {
-                            Text("Close").disabled(!semesterViewModel.isFormValid)
+                            Text("Close")
                         }
                     }
                 }

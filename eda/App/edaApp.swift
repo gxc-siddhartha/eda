@@ -12,15 +12,19 @@ struct edaApp: App {
     let persistenceController = PersistenceController.shared
     private let semesterRepository = SemesterRepository()
     private let subjectRepository = SubjectRepository()
-       @StateObject private var semesterViewModel = SemesterViewModel()
-       @StateObject private var subjectViewModel = SubjectViewModel()
-       @StateObject private var scheduleViewModel = ScheduleViewModel()
-       @StateObject private var attendanceViewModel = AttendanceViewModel()
+    @StateObject private var masterViewModel = MasterViewModel()
+    
+    @StateObject private var semesterViewModel = SemesterViewModel()
+    @StateObject private var subjectViewModel = SubjectViewModel()
+    @StateObject private var scheduleViewModel = ScheduleViewModel()
+    @StateObject private var attendanceViewModel = AttendanceViewModel()
+    
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
+
                 .environmentObject(semesterViewModel)
                 .environmentObject(subjectViewModel)
                 .environmentObject(scheduleViewModel)

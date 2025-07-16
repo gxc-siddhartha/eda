@@ -15,7 +15,7 @@ struct ScheduleView: View {
         
         List {
             DatePicker("Select Date", selection: $scheduleViewModel.selectedDate, displayedComponents: .date, )
-                .onChange(of: scheduleViewModel.selectedDate) { newDate in
+                .onChange(of: scheduleViewModel.selectedDate) {oldDate, newDate in
                     if(semesterViewModel.selectedSemesterForUser != nil) {
                         Task {
                             try await scheduleViewModel.loadSchedulesForScheduleView(for: scheduleViewModel.selectedDate, semester: semesterViewModel.selectedSemesterForUser)

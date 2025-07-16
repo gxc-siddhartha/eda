@@ -15,7 +15,7 @@
         <attribute name="scheduleLocation" optional="YES" attributeType="String"/>
         <attribute name="scheduleStartTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="attendances" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Attendance" inverseName="schedule" inverseEntity="Attendance"/>
-        <relationship name="subject" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="Subject" inverseName="schedules" inverseEntity="Subject"/>
+        <relationship name="subject" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Subject" inverseName="schedules" inverseEntity="Subject"/>
     </entity>
     <entity name="Semester" representedClassName="Semester" syncable="YES" codeGenerationType="class">
         <attribute name="passingPercentage" optional="YES" attributeType="String"/>
@@ -32,7 +32,7 @@
         <attribute name="subjectName" optional="YES" attributeType="String"/>
         <attribute name="subjectTeacher" optional="YES" attributeType="String"/>
         <relationship name="schedules" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Schedule" inverseName="subject" inverseEntity="Schedule"/>
-        <relationship name="semester" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="Semester" inverseName="subjects" inverseEntity="Semester"/>
+        <relationship name="semester" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Semester" inverseName="subjects" inverseEntity="Semester"/>
     </entity>
     <entity name="User" representedClassName="User" syncable="YES" codeGenerationType="class">
         <attribute name="selectedSemester" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>

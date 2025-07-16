@@ -17,75 +17,193 @@ struct HomeView: View {
     
     @State private var presentConfirmationDialog : Bool = false
     
+    @State private var showDeleteSubjectAlert : Bool = false
+    @State private var showSemesterDeleteAlert : Bool = false
+    
+    @State private var selectedSubjectForDeletion : Subject? = nil
+    
+    @Environment(\.scenePhase) private var scenePhase
+    
     var body: some View {
-        List {
-            if(!$scheduleViewModel.todaySchedules.isEmpty) {
-                Section("Today's Events") {
-                    TodaysEventsItem(todaysSchedules: scheduleViewModel.todaySchedules).listRowInsets(EdgeInsets())
-                }
-              
-            }
-            if(scheduleViewModel.hasActiveSchedule) {
-                Section("Ongoing") {
-                    NavigationLink(destination: AttendanceView(subject: scheduleViewModel.currentActiveSchedule!.subject!)){
-                        ActiveScheduleItem(schedule: scheduleViewModel.currentActiveSchedule! )
-                    }.padding(.trailing, 16)
-                }.listRowInsets(EdgeInsets())
-            }
-        
-            
-            if(!subjectViewModel.subjectsList.isEmpty) {
-                Section("My Subjects") {
-                    ForEach(subjectViewModel.subjectsList, id: \.subjectId) { subject in
-                        NavigationLink(destination: AttendanceView(subject: subject)) {
-                            SubjectsListItem(subject: subject)
+        if(subjectViewModel.subjectsList.isEmpty) {
 
-                        }.padding(.trailing, 16)
+                VStack {
+                    Text("📥").font(.system(size: 60, weight: .bold, design: .default))
+                        .padding()
+                    if(semesterViewModel.semesterList.isEmpty) {
+                        Text("Nothing to show. Add a semester to get started!")
+                            .padding(.horizontal)
+                            .padding(.bottom)
+                        
+                        Button("Add Semester") {
+                            semesterViewModel.presentSemesterDetailsSheet = true
+                        }
+                    } else {
+                        Text("Nothing to show. Add some subjects to get started!")
+                            .padding(.horizontal)
+                            .padding(.bottom)
+                        
+                        Button("Add Subject") {
+                            subjectViewModel.presentSubjectCreateSheet = true
+                        }
+                       
                     }
-                    .listRowInsets(EdgeInsets())
+                 
+                }.multilineTextAlignment(.center)
+         
+                .navigationTitle("My Dashboard")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+                .toolbarBackgroundVisibility(.visible, for: .tabBar)
+                .toolbar {
+                    toolbarContent
+                }
+                
+                .confirmationDialog("Add Components", isPresented: $presentConfirmationDialog) {
+                    Button("Add Subject") {
+                        subjectViewModel.presentSubjectCreateSheet = true
+                    }
+                    
+                    if(!subjectViewModel.subjectsList.isEmpty) {
+                        Button("Add Schedule") {
+                            scheduleViewModel.presentScheduleCreateSheet = true
+                        }
+                        Button("Add Attendance Log") {
+                            attendanceViewModel.presentAttendanceCreateSheet = true
+                        }
+                    }
+                    if(!scheduleViewModel.schedulesList.isEmpty) {
+                        Button("Add Attendance Log") {
+                            attendanceViewModel.presentAttendanceCreateSheet = true
+                        }
+                    }
+                        
+                    
+                }
+        } else {
+            List {
+                if(!$scheduleViewModel.todaySchedules.isEmpty) {
+                    Section("Today's Events") {
+                        TodaysEventsItem(todaysSchedules: scheduleViewModel.todaySchedules).listRowInsets(EdgeInsets())
+                    }
+                }
+                
+                if(scheduleViewModel.hasActiveSchedule) {
+                    Section("Ongoing") {
+                        NavigationLink(destination: AttendanceView(subject: scheduleViewModel.currentActiveSchedule!.subject!)){
+                            ActiveScheduleItem(schedule: scheduleViewModel.currentActiveSchedule! )
+                        }.padding(.trailing, 16)
+                    }.listRowInsets(EdgeInsets())
+                }
+
+                if(!subjectViewModel.subjectsList.isEmpty) {
+                    Section("My Subjects") {
+                        ForEach($subjectViewModel.subjectsList.wrappedValue, id: \.subjectId) { subject in
+                            NavigationLink(destination: AttendanceView(subject: subject)) {
+                                SubjectsListItem(subject: subject)
+                            }
+                            .padding(.trailing, 16)
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    subjectViewModel.startEditing(subject)
+                                    subjectViewModel.presentSubjectEditSheet = true
+                                } label: {
+                                    Text("Edit")
+                                }
+                                .tint(.accentColor)
+                                
+                                Button {
+                                    self.selectedSubjectForDeletion = subject
+                                    self.showDeleteSubjectAlert = true
+                                } label: {
+                                    Text("Delete")
+                                }
+                                .tint(.red)
+                            }
+                        }
+                        .listRowInsets(EdgeInsets())
+                    }
+                }
+                
+                
+            }
+            .navigationTitle("My Dashboard")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+            .toolbarBackgroundVisibility(.visible, for: .tabBar)
+            .toolbar {
+                toolbarContent
+            }
+            
+            .confirmationDialog("Add Components", isPresented: $presentConfirmationDialog) {
+                Button("Add Subject") {
+                    subjectViewModel.presentSubjectCreateSheet = true
+                }
+                
+                if(!subjectViewModel.subjectsList.isEmpty) {
+                    Button("Add Schedule") {
+                        scheduleViewModel.presentScheduleCreateSheet = true
+                    }
+                    
+                            Button("Add Attendance Log") {
+                                attendanceViewModel.presentAttendanceCreateSheet = true
+                            }
+                }
+            
+                
+                    
+                
+            }
+            .alert(isPresented: $showDeleteSubjectAlert) {
+                            Alert(
+                                title: Text("Delete Subject"),
+                                message: Text("Are you sure you want to delete this subject?"),
+                                primaryButton: .destructive(Text("Delete")) {
+                                    Task {
+                                        do {
+                                            try await subjectViewModel.deleteSubject(selectedSubjectForDeletion!)
+                                            
+                                            try await scheduleViewModel.loadSchedules(for: Date(), semester: semesterViewModel.selectedSemesterForUser!)
+                                
+                                              await scheduleViewModel.checkCurrentlyActiveSchedule(for: semesterViewModel.selectedSemesterForUser!)
+                                        } catch {
+                                            // handle error if needed
+                                        }
+                                        showDeleteSubjectAlert = false
+                                    }
+                                },
+                                secondaryButton: .cancel(Text("Cancel")) {
+                                    showDeleteSubjectAlert = false
+                                }
+                            )
+                        }
+            .task {
+                if(!subjectViewModel.isInitialized) {
+                    if(semesterViewModel.selectedSemesterForUser != nil ){
+                        await subjectViewModel.initialize(with: semesterViewModel.selectedSemesterForUser!)
+                    }
+                   
                 }
             }
-            
-            
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                            if newPhase == .active {
+                                // The user has just swiped up / left your app
+                                if( semesterViewModel.selectedSemesterForUser != nil) {
+                                    Task {
+                                        try? await semesterViewModel.selectSemester(semesterViewModel.selectedSemesterForUser!)
+                                        try? await subjectViewModel.loadSubjects(semester: semesterViewModel.selectedSemesterForUser!)
+                                       
+                                          try await scheduleViewModel.loadSchedules(for: Date(), semester: semesterViewModel.selectedSemesterForUser!)
+                              
+                                            await scheduleViewModel.checkCurrentlyActiveSchedule(for: semesterViewModel.selectedSemesterForUser!)
+                                        }
+                                }
+                                
+                                
+                            }
+                        }
         }
-        .navigationTitle("My Dashboard")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-        .toolbarBackgroundVisibility(.visible, for: .tabBar)
-        .toolbar {
-            toolbarContent
-        }
-        .confirmationDialog("Add Components", isPresented: $presentConfirmationDialog) {
-            Button("Add Subject") {
-                subjectViewModel.presentSubjectCreateSheet = true
-            }
-            
-            if(!subjectViewModel.subjectsList.isEmpty) {
-                Button("Add Schedule") {
-                    scheduleViewModel.presentScheduleCreateSheet = true
-                }
-            }
-            
-            
-                Button("Add Attendance Log") {
-                    attendanceViewModel.presentAttendanceCreateSheet = true
-                }
-            
-        }
-        .task {
-            // Initialize if not already done
-            if !semesterViewModel.isInitialized {
-                await semesterViewModel.initialize()
-            }
-            
-            if(!subjectViewModel.isInitialized) {
-                if(semesterViewModel.selectedSemesterForUser != nil ){
-                    await subjectViewModel.initialize(with: semesterViewModel.selectedSemesterForUser!)
-                }
-               
-            }
-            
-        }
+        
     }
     
     @ToolbarContentBuilder
@@ -111,6 +229,8 @@ struct HomeView: View {
                 
             }
         }
+        
+        
     }
     
     @ViewBuilder
@@ -141,7 +261,6 @@ struct HomeView: View {
               
                             await scheduleViewModel.checkCurrentlyActiveSchedule(for: semester)
                         }
-                        
                     
                 } label: {
                     HStack {

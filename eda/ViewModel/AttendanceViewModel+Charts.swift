@@ -86,10 +86,10 @@ extension AttendanceViewModel {
     func getWeeklyRunningPercentageData(for weekStartDate: Date? = nil) -> WeeklyAttendanceChartData {
         logger.info("📊 Generating weekly running percentage chart data")
         
-        guard let subject = selectedSubject else {
-            logger.warning("⚠️ No subject selected for chart data")
-            return createEmptyChartData()
-        }
+//        guard let subject = selectedSubject else {
+//            logger.warning("⚠️ No subject selected for chart data")
+//            return createEmptyChartData()
+//        }
         
         let weekDates = getCurrentWeekDates(startingFrom: weekStartDate)
         let chronologicalAttendance = getSortedAttendanceForSubject()
@@ -99,6 +99,7 @@ extension AttendanceViewModel {
         var runningPresent = 0
         var runningAbsent = 0
         var previousPercentage: Double = 0.0
+        
         
         // Get attendance data before this week for baseline
         let preWeekAttendance = getAttendanceBeforeWeek(weekDates.start, from: chronologicalAttendance)
@@ -111,11 +112,11 @@ extension AttendanceViewModel {
         }
         
         // Process each day of the week
-        for (index, date) in weekDates.weekdays.enumerated() {
+        for (_, date) in weekDates.weekdays.enumerated() {
             let dayAttendance = getAttendanceForSpecificDate(date, from: chronologicalAttendance)
             var dayPresent = dayAttendance.filter { $0.attendancePresence == "Present"}.count
             let dayMedical = dayAttendance.filter { $0.attendancePresence == "Medical Substitution"}.count
-            dayPresent = dayPresent + dayPresent
+            dayPresent = dayPresent + dayMedical
             let dayAbsent = dayAttendance.filter { $0.attendancePresence == "Absent" }.count
             let dayTotal = dayPresent + dayAbsent
             
@@ -193,10 +194,9 @@ extension AttendanceViewModel {
     
     private func getSortedAttendanceForSubject() -> [Attendance] {
         return attendanceForSelectedSubject
-            .filter { attendance in
-                // Only include Present and Absent (exclude Medical Substitution for percentage calculation)
-                attendance.attendancePresence == "Present" || attendance.attendancePresence == "Absent"
-            }
+            .filter { $0.attendancePresence == "Present"
+                   || $0.attendancePresence == "Absent"
+                   || $0.attendancePresence == "Medical Substitution" }
             .sorted { first, second in
                 guard let firstDate = first.attendanceDate,
                       let secondDate = second.attendanceDate else {
@@ -213,9 +213,10 @@ extension AttendanceViewModel {
         }
         
         let present = beforeWeek.filter { $0.attendancePresence == "Present" }.count
+        let medical = beforeWeek.filter{$0.attendancePresence == "Medical Substitution"}.count
         let absent = beforeWeek.filter { $0.attendancePresence == "Absent" }.count
         
-        return (total: present + absent, present: present, absent: absent)
+        return (total: present + absent + medical, present: present + medical, absent: absent)
     }
     
     private func getAttendanceForSpecificDate(_ date: Date, from attendance: [Attendance]) -> [Attendance] {

@@ -21,10 +21,8 @@ struct CreateAttendanceSheet: View {
                 Section("Subject Selection") {
                     Picker( selection: $attendanceViewModel.selectedSubject) {
                         ForEach(subjectViewModel.subjectsList, id: \.subjectId) { subject in
-                            HStack {
                                 Text(subject.subjectName ?? "Unknown Subject")
-                            }
-                            .tag(Subject?.some(subject))
+                            .tag(Optional(subject))
                         }
                     } label: {
                         Text("Subject").fontWeight(Font.Weight.semibold)
@@ -39,20 +37,14 @@ struct CreateAttendanceSheet: View {
                 
                 if let selectedSubject = attendanceViewModel.selectedSubject {
                     Section("Schedule Selection") {
-                        if isLoadingSchedules {
-                            HStack {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                Text("Loading schedules...")
-                                    .foregroundStyle(.secondary)
-                            }
-                        } else if attendanceViewModel.schedulesForSubject.isEmpty {
+                       if attendanceViewModel.schedulesForSubject.isEmpty {
                             HStack {
                                 Text("No schedules found for \(selectedSubject.subjectName ?? "this subject")")
                                     .foregroundStyle(.secondary)
                             }
                         } else {
                             Picker( selection: $attendanceViewModel.selectedSchedule) {
+                        
                                 ForEach(attendanceViewModel.schedulesForSubject, id: \.scheduleId) { schedule in
                                     HStack(alignment: .top) {
                                         Text("\(schedule.scheduleDay ?? "Unknown Day"),")
@@ -63,7 +55,7 @@ struct CreateAttendanceSheet: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .tag(Schedule?.some(schedule))
+                                    .tag(Optional(schedule))
                                 }
                             }label: {
                                 Text("Schedule").fontWeight(Font.Weight.semibold)
@@ -78,7 +70,7 @@ struct CreateAttendanceSheet: View {
                    
                     Picker("Type", selection: $attendanceViewModel.attendanceType) {
                         ForEach(attendanceViewModel.availableAttendanceTypes, id: \.self) { type in
-                            Text(type)
+                            Text(type).tag(type)
                         }
                     }
                     .pickerStyle(.menu)
@@ -87,7 +79,7 @@ struct CreateAttendanceSheet: View {
                     Picker("Status", selection: $attendanceViewModel.attendancePresent) {
                         ForEach(attendanceViewModel.availablePresenceStatus, id: \.self) { status in
                             HStack {
-                                Text(status)
+                                Text(status).tag(status)
                             }
                         }
                     }
@@ -141,13 +133,7 @@ struct CreateAttendanceSheet: View {
                     dismissButton: .default(Text("OK"))
                 )
             }
-            .alert("Success", isPresented: $attendanceViewModel.showSuccessAlert) {
-                Button("OK") {
-                    attendanceViewModel.clearAlerts()
-                }
-            } message: {
-                Text(attendanceViewModel.alertMessage)
-            }
+            
             .onAppear {
                 Task {
                     if attendanceViewModel.attendanceType.isEmpty {
@@ -156,6 +142,9 @@ struct CreateAttendanceSheet: View {
                     if attendanceViewModel.attendancePresent.isEmpty {
                         attendanceViewModel.attendancePresent = "Present"
                     }
+                    
+                    attendanceViewModel.selectedSubject = nil
+                    attendanceViewModel.schedulesForSubject = []
                     
 //                    // Auto-select first subject if available and none selected
 //                    if attendanceViewModel.selectedSubject == nil && !subjectViewModel.subjectsList.isEmpty {

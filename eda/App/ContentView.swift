@@ -9,11 +9,16 @@ import SwiftUI
 import CoreData
 
 struct ContentView: View {
+    @StateObject private var masterViewModel: MasterViewModel = MasterViewModel.shared
+    
     @EnvironmentObject private var semesterViewModel: SemesterViewModel
     @EnvironmentObject private var subjectViewModel: SubjectViewModel
     @EnvironmentObject private var scheduleViewModel: ScheduleViewModel
     @EnvironmentObject private var attendanceViewModel: AttendanceViewModel
     
+    @Environment(\.scenePhase) private var scenePhase
+    
+  
     var body: some View {
         
         TabView {
@@ -53,6 +58,20 @@ struct ContentView: View {
                 .presentationDragIndicator(.visible)
             
         }
+        .sheet(isPresented: $subjectViewModel.presentSubjectEditSheet ){
+            EditSubjectSheet()
+                .presentationDragIndicator(.visible)
+            
+        }
+        .alert(isPresented: $masterViewModel.showAlert) {
+            Alert(
+                title: Text(masterViewModel.alertTitle),
+                message: Text(masterViewModel.alertMessage),
+                dismissButton: .default(Text("Okay").bold())
+            )
+        }
+        
+
     }
 }
 #Preview {

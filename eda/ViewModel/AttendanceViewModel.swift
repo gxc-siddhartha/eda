@@ -31,21 +31,21 @@ enum AttendanceViewModelError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .validationFailed(let message):
-            return "Validation Error: \(message)"
+            return "\(message)"
         case .repositoryError(let message):
-            return "Data Error: \(message)"
+            return "\(message)"
         case .networkError(let message):
-            return "Network Error: \(message)"
+            return "\(message)"
         case .userCancelled:
             return "Operation was cancelled"
         case .duplicateAttendance(let details):
-            return "Duplicate attendance: \(details)"
+            return "\(details)"
         case .attendanceNotFound(let id):
-            return "Attendance not found: \(id)"
+            return "\(id)"
         case .scheduleNotFound(let id):
-            return "Schedule not found: \(id)"
+            return "\(id)"
         case .subjectNotFound(let id):
-            return "Subject not found: \(id)"
+            return "\(id)"
         case .operationTimeout:
             return "Operation timed out. Please try again."
         case .invalidState(let message):
@@ -149,6 +149,8 @@ enum AttendanceLoadingState {
 @MainActor
 class AttendanceViewModel: ObservableObject {
     
+    private var masterViewModel: MasterViewModel = MasterViewModel.shared
+    
     // MARK: - Dependencies
     private let repository: AttendanceRepository
     let logger = Logger(subsystem: "com.eda.app", category: "AttendanceViewModel")
@@ -165,7 +167,14 @@ class AttendanceViewModel: ObservableObject {
     @Published var attendanceDate: Date = Date()
     @Published var selectedSchedule: Schedule? = nil
     
+    // MARK: Schedules
     @Published var schedulesForSubject: [Schedule] = []
+    
+    // MARK: Info Alert Properties
+    @Published var infoAlertForContentView: Bool = false
+
+    @Published var infoAlertMessage: String = ""
+    @Published var infoAlertTitle: String = ""
     
     // MARK: - UI State
     @Published var presentAttendanceCreateSheet: Bool = false
@@ -313,6 +322,10 @@ class AttendanceViewModel: ObservableObject {
             )
             
             // Create attendance
+            if(try await validateAttendanceDate() == false) {
+                let wrappedError =  await wrapError(AttendanceViewModelError.invalidAttendanceData,context:  "create attendance")
+                throw wrappedError
+            }
             let newAttendance = try await withTimeout(operationTimeout) {
                 try await self.repository.createAttendance(attendanceData: attendanceData, for: schedule)
             }
@@ -325,14 +338,21 @@ class AttendanceViewModel: ObservableObject {
             presentAttendanceCreateSheet = false
             loadingState = .success
             
-            await showSuccess(title: "Attendance Created", message: "Attendance has been created successfully!")
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            
+            await MainActor.run {
+                self.masterViewModel.showAlert = true
+                self.masterViewModel.alertTitle = "Attendance Created"
+                self.masterViewModel.alertMessage = "Attendance for \(schedule.subject?.subjectName?.lowercased() ?? "unknown subject".lowercased()) has been created, you can view it in the attendance page for that subject."
+            }
             
             logger.info("✅ Attendance created successfully")
             return newAttendance
             
         } catch {
             let wrappedError = await wrapError(error, context: "creating attendance")
-            await handleError(wrappedError, operation: "create attendance")
+            let attendanceDateValid = try await validateAttendanceDate()
+            attendanceDateValid ? await handleError(wrappedError, operation: "create attendance") : ()
             throw wrappedError
         }
     }
@@ -425,15 +445,11 @@ class AttendanceViewModel: ObservableObject {
     func refreshData() async {
         logger.info("🔄 Refreshing attendance data...")
         loadingState = .loading
-        
-        do {
+
             await refreshAttendanceData()
             loadingState = .success
             await showSuccess(title: "Data Refreshed", message: "Attendance data has been updated.")
-        } catch {
-            logger.error("❌ Failed to refresh data: \(error.localizedDescription)")
-            await handleError(error, operation: "refresh data", showRetry: true)
-        }
+     
     }
     
     private func refreshAttendanceData() async {
@@ -508,14 +524,14 @@ class AttendanceViewModel: ObservableObject {
         }
         
         // Validate attendance date
-        guard validateAttendanceDate() else {
+        guard try await validateAttendanceDate() else {
             throw AttendanceViewModelError.invalidDate
         }
         
         logger.debug("✅ Attendance data validation passed")
     }
     
-    private func validateAttendanceDate() -> Bool {
+    private func validateAttendanceDate() async throws -> Bool {
         guard let schedule = selectedSchedule else {
             logger.warning("⚠️ No schedule selected for attendance date validation")
             return false
@@ -535,6 +551,11 @@ class AttendanceViewModel: ObservableObject {
         
         // Check if the attendance date's weekday matches the schedule's day
         guard attendanceDateWeekday == scheduleDay else {
+            await MainActor.run{
+                self.showErrorAlert = true
+                self.alertMessage = "Selected schedule's weekday doesn't match from your selected date's weekday. Please select a different date."
+                self.alertTitle = "Attendance Date Mismatch"
+            }
             logger.warning("⚠️ Attendance date weekday (\(attendanceDateWeekday)) doesn't match schedule day (\(scheduleDay))")
             return false
         }
@@ -558,6 +579,12 @@ class AttendanceViewModel: ObservableObject {
         let endDateOnly = calendar.startOfDay(for: semesterEndDate)
         
         guard attendanceDateOnly >= startDateOnly && attendanceDateOnly <= endDateOnly else {
+            await MainActor.run {
+                self.showErrorAlert = true
+                self.alertMessage = "Your selected date is outside the semester range. Please select a different date."
+                self.alertTitle = "Semester Date Exceeded!"
+            }
+           
             logger.warning("⚠️ Attendance date (\(self.attendanceDate)) is outside semester range (\(semesterStartDate) - \(semesterEndDate))")
             return false
         }
@@ -612,7 +639,7 @@ class AttendanceViewModel: ObservableObject {
         
         logger.error("❌ Error in \(operation): \(wrappedError.localizedDescription)")
         
-        alertTitle = "Error"
+        alertTitle = "Oops!"
         alertMessage = wrappedError.localizedDescription
         showRetryOption = showRetry
         showErrorAlert = true
@@ -675,13 +702,12 @@ class AttendanceViewModel: ObservableObject {
             do {
                 if let subject = newSubject {
                     try await loadAttendanceForSubject(subject)
-                    try await loadAttendanceForDate(selectedDate, subject: subject)
                 } else {
                     attendanceForSelectedSubject = []
                     attendanceForSelectedDate = []
                 }
                 // Update chart data when subject changes
-                updateWeeklyChartData()
+//                updateWeeklyChartData()
             } catch {
                 logger.error("❌ Failed to load attendance for new subject: \(error.localizedDescription)")
             }
@@ -727,8 +753,7 @@ class AttendanceViewModel: ObservableObject {
                trimmedType.count <= 50 &&
 
                availablePresenceStatus.contains(trimmedPresent) &&
-               selectedSchedule != nil &&
-               validateAttendanceDate()
+               selectedSchedule != nil
     }
     
     var canUpdateAttendance: Bool {
@@ -769,7 +794,9 @@ class AttendanceViewModel: ObservableObject {
     
     var attendanceStatistics: (total: Int, present: Int, absent: Int) {
         let total = attendanceForSelectedSubject.count
-        let present = attendanceForSelectedSubject.filter { $0.attendancePresence == "Present" }.count
+        var present = attendanceForSelectedSubject.filter { $0.attendancePresence == "Present" }.count
+        let medical = attendanceForSelectedSubject.filter { $0.attendancePresence == "Medical Substitution" }.count
+        present = present + medical
         let absent = attendanceForSelectedSubject.filter { $0.attendancePresence == "Absent" }.count
         
         return (total: total, present: present, absent: absent)
@@ -796,6 +823,17 @@ class AttendanceViewModel: ObservableObject {
         return Date() // Fallback to today
     }
     
+    // MARK: – Raw Stats
+        private var totalSessions: Int {
+            attendanceForSelectedSubject.count
+        }
+        private var presentSessions: Int {
+            attendanceForSelectedSubject
+              .filter { $0.attendancePresence == "Present"
+                     || $0.attendancePresence == "Medical Substitution" }
+              .count
+        }
+    
     var minAllowedDate: Date {
         if let schedule = selectedSchedule,
            let subject = schedule.subject,
@@ -809,6 +847,25 @@ class AttendanceViewModel: ObservableObject {
     var allowedWeekday: String? {
         return selectedSchedule?.scheduleDay
     }
+    
+    // MARK: – Inverse Attendance Calculators
+        func maxSkippableClasses(beforeDroppingBelow thresholdPercent: Double) -> Int {
+            let N = Double(totalSessions)
+            let P = Double(presentSessions)
+            let t = thresholdPercent / 100.0
+            guard N > 0, t > 0 else { return 0 }
+            let raw = (P - t * N) / t
+            return max(0, Int(floor(raw)))
+        }
+
+        func presencesNeeded(toReach thresholdPercent: Double) -> Int {
+            let N = Double(totalSessions)
+            let P = Double(presentSessions)
+            let t = thresholdPercent / 100.0
+            guard N > 0, P / N < t else { return 0 }
+            let raw = (t * N - P) / (1.0 - t)
+            return max(0, Int(ceil(raw)))
+        }
     
     // MARK: - Date Filtering Helper
     func isDateAllowed(_ date: Date) -> Bool {

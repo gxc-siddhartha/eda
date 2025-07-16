@@ -79,8 +79,8 @@ class SubjectRepository {
                     
                     // Create new subject
                     let newSubject = Subject(context: self.backgroundContext)
-                    newSubject.subjectName = subjectData.name
-                    newSubject.subjectTeacher = subjectData.teacher
+                    newSubject.subjectName = subjectData.name.capitalized
+                    newSubject.subjectTeacher = subjectData.teacher.capitalized
                     newSubject.subjectColor = subjectData.color
                     newSubject.subjectIcon = subjectData.icon
                     newSubject.subjectId = UUID()
@@ -146,8 +146,8 @@ class SubjectRepository {
                     }
                     
                     // Update properties
-                    subject.subjectName = subjectData.name
-                    subject.subjectTeacher = subjectData.teacher
+                    subject.subjectName = subjectData.name.capitalized
+                    subject.subjectTeacher = subjectData.teacher.capitalized
                     subject.subjectColor = subjectData.color
                     subject.subjectIcon = subjectData.icon
                     subject.semester = backgroundSemester

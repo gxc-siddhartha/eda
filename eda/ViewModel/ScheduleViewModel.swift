@@ -134,7 +134,8 @@ enum ScheduleLoadingState {
 
 @MainActor
 class ScheduleViewModel: ObservableObject {
-    
+    private var masterViewModel: MasterViewModel = MasterViewModel.shared
+
     // MARK: - Dependencies
     private let repository: ScheduleRepository
     private let logger = Logger(subsystem: "com.eda.app", category: "ScheduleViewModel")
@@ -143,6 +144,11 @@ class ScheduleViewModel: ObservableObject {
     @Published var schedulesList: [Schedule] = []
     @Published var loadingState: ScheduleLoadingState = .idle
     @Published var isInitialized: Bool = false
+    
+    // MARK: - Info Alert Properties
+    @Published var showInfoAlert: Bool = false
+    @Published var infoAlertTitle: String = ""
+    @Published var infoAlertMessage: String = ""
     
     // MARK: - Form Properties
     @Published var scheduleStartTime: Date = Date()
@@ -335,12 +341,27 @@ class ScheduleViewModel: ObservableObject {
             }
         
             await checkCurrentlyActiveSchedule(for: semester)
-            // Clear form and close sheet
+            
+            
+            
             clearForm()
             presentScheduleCreateSheet = false
             loadingState = .success
+
             
-            await showSuccess(title: "Schedule Created", message: "Schedule has been created successfully!")
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            
+//            await MainActor.run {
+//                self.showInfoAlert = true
+//                self.infoAlertTitle = "Schedule Added"
+//                self.infoAlertMessage = "Schedule for \(subject.subjectName ?? "Untitled Subject") on \(formattedSelectedDate) has been added successfully."
+//            }
+            
+            await MainActor.run {
+                self.masterViewModel.showAlert = true
+                self.masterViewModel.alertTitle = "Schedule Added"
+                self.masterViewModel.alertMessage = "Schedule for \(subject.subjectName?.lowercased() ?? "Untitled Subject") on \(formattedSelectedDate) has been added successfully."
+            }
             
             logger.info("✅ Schedule created successfully")
             return newSchedule
@@ -628,7 +649,7 @@ class ScheduleViewModel: ObservableObject {
         
         logger.error("❌ Error in \(operation): \(wrappedError.localizedDescription)")
         
-        alertTitle = "Error"
+        alertTitle = "Oops, we got stuck!"
         alertMessage = wrappedError.localizedDescription
         showRetryOption = showRetry
         showErrorAlert = true

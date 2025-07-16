@@ -122,7 +122,8 @@ enum SubjectLoadingState {
 
 @MainActor
 class SubjectViewModel: ObservableObject {
-    
+    private var masterViewModel: MasterViewModel = MasterViewModel.shared
+
     // MARK: - Dependencies
     private let repository: SubjectRepository
     private let logger = Logger(subsystem: "com.eda.app", category: "SubjectViewModel")
@@ -131,6 +132,14 @@ class SubjectViewModel: ObservableObject {
     @Published var subjectsList: [Subject] = []
     @Published var loadingState: SubjectLoadingState = .idle
     @Published var isInitialized: Bool = false
+    
+    // MARK: - Editing
+    @Published var subjectToBeEdited: Subject? = nil
+    
+    // MARK: - Info Alert Properties
+    @Published var showInfoAlert: Bool = false
+    @Published var infoAlertTitle: String = ""
+    @Published var infoAlertMessage: String = ""
     
     // MARK: - Form Properties
     @Published var subjectName: String = ""
@@ -264,11 +273,20 @@ class SubjectViewModel: ObservableObject {
             subjectsList.sort { ($0.subjectName ?? "") < ($1.subjectName ?? "") }
             
             // Clear form and close sheet
-            clearForm()
             presentSubjectCreateSheet = false
             loadingState = .success
+
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            
+            await MainActor.run {
+                self.masterViewModel.showAlert = true
+                self.masterViewModel.alertTitle = "Subject Created"
+                self.masterViewModel.alertMessage = "\(subjectName) was successfully created."
+            }
+
             
             logger.info("✅ Subject created successfully: \(newSubject.subjectName ?? "unnamed")")
+            clearForm()
             return newSubject
             
         } catch {
@@ -322,20 +340,22 @@ class SubjectViewModel: ObservableObject {
             let updatedSubject = try await withTimeout(operationTimeout) {
                 try await self.repository.updateSubject(subjectId: subjectId, subjectData: subjectData, for: semester!)
             }
+       
+            presentSubjectEditSheet = false
+            loadingState = .success
             
-            // Update local state
-            if let index = subjectsList.firstIndex(where: { $0.subjectId == subjectId }) {
-                subjectsList[index] = updatedSubject
-                subjectsList.sort { ($0.subjectName ?? "") < ($1.subjectName ?? "") }
+            
+            try await Task.sleep(nanoseconds: 5_000_000)
+            
+            await MainActor.run {
+                self.masterViewModel.showAlert = true
+                self.masterViewModel.alertTitle = "Subject Updated"
+                self.masterViewModel.alertMessage = "\(subjectName) was successfully updated."
             }
             
             // Clear form and close sheet
             clearForm()
             clearEditingState()
-            presentSubjectEditSheet = false
-            loadingState = .success
-            
-            await showSuccess(title: "Subject Updated", message: "'\(updatedSubject.subjectName ?? "Subject")' has been updated successfully!")
             
             logger.info("✅ Subject updated successfully: \(updatedSubject.subjectName ?? "unnamed")")
             return updatedSubject
@@ -347,6 +367,7 @@ class SubjectViewModel: ObservableObject {
         }
     }
     
+    // MARK: Delete Subject
     func deleteSubject(_ subject: Subject) async throws {
         guard let subjectId = subject.subjectId else {
             let error = SubjectViewModelError.subjectNotFound("Invalid subject ID")
@@ -383,6 +404,7 @@ class SubjectViewModel: ObservableObject {
         }
     }
     
+    // MARK: Refresh Data
     func refreshData(semester: Semester?) async {
         logger.info("🔄 Refreshing subject data...")
         loadingState = .loading
@@ -407,12 +429,12 @@ class SubjectViewModel: ObservableObject {
         subjectTeacher = subject.subjectTeacher ?? ""
         subjectColor = subject.subjectColor ?? "Blue"
         subjectIcon = subject.subjectIcon ?? "book.fill"
-        
         presentSubjectEditSheet = true
     }
     
     func cancelEditing() {
         logger.info("❌ Cancelling subject editing")
+        editingSubject = nil
         clearForm()
         clearEditingState()
         presentSubjectEditSheet = false
@@ -508,7 +530,7 @@ class SubjectViewModel: ObservableObject {
         
         logger.error("❌ Error in \(operation): \(wrappedError.localizedDescription)")
         
-        alertTitle = "Error"
+        alertTitle = "Oops, we got stuck!"
         alertMessage = wrappedError.localizedDescription
         showRetryOption = showRetry
         showErrorAlert = true
