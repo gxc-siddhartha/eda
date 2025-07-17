@@ -133,6 +133,9 @@ class SemesterViewModel: ObservableObject {
     @Published var semesterEndDate: Date = Date()
     @Published var passingPercentage: String = ""
     
+    // MARK: - Manage Semesters
+    @Published var presentManageSemestersSheet: Bool = false
+    
     // MARK: - UI State
     @Published var presentSemesterDetailsSheet: Bool = false
     @Published var showErrorAlert: Bool = false
@@ -349,12 +352,12 @@ class SemesterViewModel: ObservableObject {
             // Clear selection if this was the selected semester
             if isSelectedSemester {
                 selectedSemesterForUser = nil
+                if(!semesterList.isEmpty) {
+                    selectedSemesterForUser = semesterList[0]
+                }
             }
             
             loadingState = .success
-            
-            await showSuccess(title: "Semester Deleted", message: "'\(semester.semesterName ?? "Semester")' has been deleted successfully.")
-            
             logger.info("✅ Semester deleted successfully: \(semester.semesterName ?? "unnamed")")
             
         } catch {

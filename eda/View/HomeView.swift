@@ -282,6 +282,16 @@ struct HomeView: View {
                     Image(systemName: "plus")
                 }
             }
+            
+            Button {
+                semesterViewModel.presentManageSemestersSheet = true
+            } label: {
+                HStack {
+                    Text("Manage Semesters")
+                    Image(systemName: "list.bullet")
+                }
+            }
+            
         } label: {
             HStack {
                 Text(semesterViewModel.selectedSemesterForUser?.semesterName ?? "Select Semester")

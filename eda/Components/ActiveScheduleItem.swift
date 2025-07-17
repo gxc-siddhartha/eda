@@ -38,10 +38,7 @@ struct ActiveScheduleItem: View {
                     Text(schedule.scheduleLocation ?? "Unkwown").font(.subheadline).lineLimit(1)
                 }.foregroundStyle(Color("a\(schedule.subject?.subjectColor ?? "AccentColor")"))
                     .padding(.bottom, 6)
-                
-//                Text("\(formatDateToTimeAndHour(schedule.scheduleStartTime ?? Date())) to \(formatDateToTimeAndHour(schedule.scheduleEndTime ?? Date()))")
-//                    .opacity(0.5)
-//                    .padding(.bottom, 6)
+            
             }
             Spacer()
             

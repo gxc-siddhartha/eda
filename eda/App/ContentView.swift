@@ -63,6 +63,11 @@ struct ContentView: View {
                 .presentationDragIndicator(.visible)
             
         }
+        .sheet(isPresented: $semesterViewModel.presentManageSemestersSheet ){
+            ManageSemesterSheet()
+                .presentationDragIndicator(.visible)
+            
+        }
         .alert(isPresented: $masterViewModel.showAlert) {
             Alert(
                 title: Text(masterViewModel.alertTitle),
