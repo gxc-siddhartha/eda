@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ActiveScheduleItem: View {
-    var schedule: Schedule
+   @ObservedObject var schedule: Schedule
     
     func formatDateToTimeAndHour(_ date: Date) -> String {
         let dateFormatter = DateFormatter()

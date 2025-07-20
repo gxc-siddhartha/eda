@@ -9,7 +9,7 @@ import SwiftUI
 
 struct TodaysEventsItem: View {
     
-    var todaysSchedules : [Schedule?]
+     var todaysSchedules : [Schedule?]
     
     func formatDateToHourAndMinute(_ date: Date) -> String {
         let dateFormatter = DateFormatter()

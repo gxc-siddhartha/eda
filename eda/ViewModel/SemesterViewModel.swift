@@ -116,11 +116,19 @@ class SemesterViewModel: ObservableObject {
     private let repository: SemesterRepository
     private let logger = Logger(subsystem: "com.eda.app", category: "SemesterViewModel")
     
+    // MARK: - Editing Options
+    @Published var editSemesterName: String = ""
+    @Published var editSemesterStartDate: Date = Date()
+    @Published var editedEndDate: Date = Date()
+    @Published var editedPassingPercentage: String = ""
+    
     // MARK: - Published Properties
     @Published var semesterList: [Semester] = []
     @Published var selectedSemesterForUser: Semester? = nil
     @Published var loadingState: LoadingState = .idle
     @Published var isInitialized: Bool = false
+    
+    @Published var presentSemesterEditSheet: Bool = false
     
     // MARK: - Info Alert Properties
     @Published var showInfoAlert: Bool = false
@@ -132,6 +140,11 @@ class SemesterViewModel: ObservableObject {
     @Published var semesterStartDate: Date = Date()
     @Published var semesterEndDate: Date = Date()
     @Published var passingPercentage: String = ""
+    
+    
+    @Published var editingSemester: Semester?
+    
+ 
     
     // MARK: - Manage Semesters
     @Published var presentManageSemestersSheet: Bool = false
@@ -158,6 +171,22 @@ class SemesterViewModel: ObservableObject {
         self.logger.info("🚀 SemesterViewModel initialized")
         self.setupInitialDates()
     }
+    
+    // Call when the user taps “Edit” on a semester row
+     func startEditing(_ semester: Semester) {
+         editingSemester = semester
+         // initialize our two fields from the existing object
+         
+         editSemesterName = semester.semesterName ?? ""
+         editSemesterStartDate = semester.semesterStartDate ?? Date()
+         editedEndDate = semester.semesterEndDate ?? Date()
+         editedPassingPercentage = semester.passingPercentage ?? ""
+     }
+     
+     // Call to cancel out of edit mode
+     func cancelEditing() {
+         editingSemester = nil
+     }
     
     private func setupInitialDates() {
         self.semesterEndDate = Calendar.current.date(byAdding: .month, value: 5, to: self.semesterStartDate) ?? self.semesterStartDate
@@ -304,6 +333,60 @@ class SemesterViewModel: ObservableObject {
             throw wrappedError
         }
     }
+    
+    // The single “save” action: takes the original name & startDate,
+        // but applies only the two edited fields
+        func updateSemester() async {
+            guard let semester = editingSemester,
+                  let id = semester.semesterId,
+                  let name = semester.semesterName,
+                  let startDate = semester.semesterStartDate
+                
+            else {
+                alertMessage = "No Semester Found"
+                alertTitle = "Error"
+                showErrorAlert = true
+                return
+            }
+          
+            let updatedData = SemesterData(
+                name: name,
+                startDate: startDate,
+                endDate: editedEndDate,
+                passingPercentage: editedPassingPercentage
+            )
+            
+            do {
+                let updated = try await repository.updateSemester(semesterId: id, semesterData: updatedData)
+                
+                // reflect change in our local array
+                if let idx = semesterList.firstIndex(where: { $0.semesterId == id }) {
+                    semesterList[idx] = updated
+                }
+                
+                await MainActor.run {
+                    presentSemesterEditSheet = false
+                    presentManageSemestersSheet = false
+                }
+                
+ 
+                await MainActor.run {
+                    self.masterViewModel.showAlert = true
+                    self.masterViewModel.alertTitle = "Semester Updated"
+                    self.masterViewModel.alertMessage = "\(name) has been updated."
+                   
+                }
+                
+                // exit edit‐mode
+                editingSemester = nil
+                
+            } catch {
+                logger.error("❌ Failed to update semester: \(error.localizedDescription)")
+                alertMessage = error.localizedDescription
+                alertTitle = "Error"
+                showErrorAlert = true
+            }
+        }
     
     func selectSemester(_ semester: Semester) async throws {
         logger.info("🎯 Selecting semester: \(semester.semesterName ?? "unnamed")")

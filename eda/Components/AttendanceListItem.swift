@@ -8,12 +8,17 @@
 import SwiftUI
 
 struct AttendanceListItem: View {
-    var attendance: Attendance
-    
+   @ObservedObject var attendance: Attendance
 
     func formatDateToTimeAndHour(_ date: Date) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "h:mm a"
+        return dateFormatter.string(from: date)
+    }
+    
+    func formatDateToWeekday(_ date: Date) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "EEEE"
         return dateFormatter.string(from: date)
     }
     
@@ -54,7 +59,7 @@ struct AttendanceListItem: View {
             
             VStack(alignment: .leading, spacing: 0){
                 HStack {
-                    Text(attendance.schedule?.scheduleDay ?? "No Weekday").lineLimit(1)
+                    Text(formatDateToWeekday(attendance.attendanceDate ?? Date())).lineLimit(1)
                         .font(.headline)
                         
                     Text(attendance.attendanceType ?? "N/A").font(.system(.subheadline, design: .rounded)).fontWeight(Font.Weight.semibold).opacity(0.4)
@@ -77,9 +82,9 @@ struct AttendanceListItem: View {
 
                   
                 VStack(alignment: .leading, spacing: -2){
-                    Text("\(formatDateToTimeAndHour(attendance.schedule?.scheduleStartTime ?? Date()))").font(.caption)
+                    Text("\(formatDateToTimeAndHour(attendance.attendanceStartTime ?? Date()))").font(.caption)
                         .fontWeight(Font.Weight.medium).opacity(0.6).lineLimit(1)
-                    Text("\(formatDateToTimeAndHour(attendance.schedule?.scheduleEndTime ?? Date()))")
+                    Text("\(formatDateToTimeAndHour(attendance.attendanceEndTime ?? Date()))")
                         .fontWeight(Font.Weight.medium).font(.caption).opacity(0.6).lineLimit(1)
                 }
             }.padding(.trailing, 16)

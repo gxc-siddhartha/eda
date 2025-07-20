@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		355D55FF2E299A0E0065183F /* SwiftCSV in Frameworks */ = {isa = PBXBuildFile; productRef = 355D55FE2E299A0E0065183F /* SwiftCSV */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		350F3C882E223F0000EDAD24 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				355D55FF2E299A0E0065183F /* SwiftCSV in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = eda;
 			packageProductDependencies = (
+				355D55FE2E299A0E0065183F /* SwiftCSV */,
 			);
 			productName = eda;
 			productReference = 350F3C752E223EFF00EDAD24 /* eda.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = 350F3C6C2E223EFF00EDAD24;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				355D55FD2E299A0E0065183F /* XCRemoteSwiftPackageReference "SwiftCSV" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 350F3C762E223EFF00EDAD24 /* Products */;
 			projectDirPath = "";
@@ -400,6 +409,8 @@
 				DEVELOPMENT_TEAM = VR23286436;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "This app needs access to documents to import CSV files.";
+				INFOPLIST_KEY_NSDownloadsFolderUsageDescription = "This app needs to access downloads folder to import CSV files";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -434,6 +445,8 @@
 				DEVELOPMENT_TEAM = VR23286436;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "This app needs access to documents to import CSV files.";
+				INFOPLIST_KEY_NSDownloadsFolderUsageDescription = "This app needs to access downloads folder to import CSV files";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -570,6 +583,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		355D55FD2E299A0E0065183F /* XCRemoteSwiftPackageReference "SwiftCSV" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swiftcsv/SwiftCSV.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		355D55FE2E299A0E0065183F /* SwiftCSV */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 355D55FD2E299A0E0065183F /* XCRemoteSwiftPackageReference "SwiftCSV" */;
+			productName = SwiftCSV;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 350F3C6D2E223EFF00EDAD24 /* Project object */;
 }

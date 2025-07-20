@@ -158,6 +158,7 @@ class SubjectRepository {
                     // Get updated object in main context
                     let mainContextSubject = try self.persistentContainer.viewContext.existingObject(with: subject.objectID) as! Subject
                     
+                    
                     self.logger.info("✅ Subject updated successfully: \(subjectData.name) in semester: \(backgroundSemester.semesterName ?? "unknown")")
                     continuation.resume(returning: mainContextSubject)
                     

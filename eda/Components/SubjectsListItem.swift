@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SubjectsListItem: View {
     @ObservedObject var subject: Subject
+    
     var body: some View {
         HStack(alignment: .center) {
             Image(systemName: subject.subjectIcon ?? "network")

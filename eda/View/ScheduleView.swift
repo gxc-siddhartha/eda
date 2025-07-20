@@ -11,6 +11,9 @@ struct ScheduleView: View {
     @EnvironmentObject var scheduleViewModel: ScheduleViewModel
     @EnvironmentObject var semesterViewModel: SemesterViewModel
     
+    @State private var showDeleteScheduleAlert: Bool = false
+    @State private var scheduleToDelete: Schedule? = nil
+    
     var body: some View {
         
         List {
@@ -23,15 +26,29 @@ struct ScheduleView: View {
                     }
                 }
                 .datePickerStyle(.graphical)
-                
-                
             
             Section {
                 ForEach(scheduleViewModel.schedulesForSelectedDate, id: \.scheduleId) {schedule in
-                    NavigationLink(destination: AttendanceView(subject: schedule.subject!),){
+                   
                         ScheduleViewListItem(schedule: schedule).listRowSeparator(.hidden)
+                        .padding(.trailing)
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                scheduleViewModel.startEditing(schedule)
+                                scheduleViewModel.presentScheduleEditSheet = true
+                            } label: {
+                                Text("Edit")
+                            }
+                            .tint(.accentColor)
                             
-                    }.padding(.trailing)
+                            Button {
+                                showDeleteScheduleAlert = true
+                                scheduleToDelete = schedule
+                            } label: {
+                                Text("Delete")
+                            }
+                            .tint(.red)
+                        }
                 }
                 
             }.listRowInsets(EdgeInsets())
@@ -45,6 +62,27 @@ struct ScheduleView: View {
                 }
                 
             }
+            .alert(isPresented: $showDeleteScheduleAlert) {
+                            Alert(
+                                title: Text("Delete Schedule"),
+                                message: Text("This will also remove all the attendances for this schedule. Are you sure you want to delete this schedule?"),
+                                primaryButton: .destructive(Text("Delete")) {
+                                    Task {
+                                        do {
+                                            try await scheduleViewModel.deleteSchedule(scheduleToDelete!)
+                                            try await scheduleViewModel.loadSchedulesForScheduleView(for: scheduleViewModel.selectedDate, semester: semesterViewModel.selectedSemesterForUser!)
+                                            
+                                        } catch {
+                                            // handle error if needed
+                                        }
+                                        showDeleteScheduleAlert = false
+                                    }
+                                },
+                                secondaryButton: .cancel(Text("Cancel")) {
+                                    showDeleteScheduleAlert = false
+                                }
+                            )
+                        }
             
         
     }

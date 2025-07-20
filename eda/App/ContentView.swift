@@ -68,6 +68,20 @@ struct ContentView: View {
                 .presentationDragIndicator(.visible)
             
         }
+        .sheet(isPresented: $scheduleViewModel.presentScheduleEditSheet ){
+            EditScheduleSheet()
+                .presentationDragIndicator(.visible)
+            
+        }  .sheet(isPresented: $masterViewModel.presentImportSheet ){
+            ImportSheet()
+                .presentationDragIndicator(.visible)
+            
+        }
+        .sheet(isPresented: $attendanceViewModel.presentAttendanceEditSheet ){
+            EditAttendanceSheet()
+                .presentationDragIndicator(.visible)
+            
+        }
         .alert(isPresented: $masterViewModel.showAlert) {
             Alert(
                 title: Text(masterViewModel.alertTitle),

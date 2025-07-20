@@ -14,6 +14,7 @@ struct HomeView: View {
     @EnvironmentObject private var subjectViewModel: SubjectViewModel
     @EnvironmentObject private var scheduleViewModel: ScheduleViewModel
     @EnvironmentObject private var attendanceViewModel: AttendanceViewModel
+    private var masterViewModel: MasterViewModel = MasterViewModel.shared
     
     @State private var presentConfirmationDialog : Bool = false
     
@@ -151,8 +152,6 @@ struct HomeView: View {
                 }
             
                 
-                    
-                
             }
             .alert(isPresented: $showDeleteSubjectAlert) {
                             Alert(
@@ -181,6 +180,8 @@ struct HomeView: View {
                 if(!subjectViewModel.isInitialized) {
                     if(semesterViewModel.selectedSemesterForUser != nil ){
                         await subjectViewModel.initialize(with: semesterViewModel.selectedSemesterForUser!)
+                    } else if(!semesterViewModel.semesterList.isEmpty) {
+                        await semesterViewModel.selectedSemesterForUser = semesterViewModel.semesterList[0] 
                     }
                    
                 }
@@ -228,7 +229,18 @@ struct HomeView: View {
                 }
                 
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    masterViewModel.presentImportSheet = true
+                    // Add your action here
+                } label: {
+                    Image(systemName: "square.and.arrow.down")
+                }
+                
+            }
         }
+        
+        
         
         
     }

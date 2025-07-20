@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ScheduleViewListItem: View {
-    var schedule: Schedule
+   @ObservedObject var schedule: Schedule
     
     func formatDateToTimeAndHour(_ date: Date) -> String {
         let dateFormatter = DateFormatter()
@@ -19,14 +19,16 @@ struct ScheduleViewListItem: View {
     var body: some View {
         HStack {
             
-                ZStack{
-                    Rectangle().fill(Color("a\(schedule.subject?.subjectColor ?? "AccentColor")").opacity(0.15))
-                        .frame(width: 55)
-                    Image(systemName: schedule.subject?.subjectIcon ?? "applewatch.watchface")
-                        .font(.title3)
-                        .foregroundStyle(Color("a\(schedule.subject?.subjectColor ?? "AccentColor")")).padding()
-                }
-            
+            ZStack{
+                Rectangle().fill(Color("a\(schedule.subject?.subjectColor ?? "AccentColor")").opacity(0.15))
+                    .frame(width: 55)
+                Image(systemName: "applewatch.watchface")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .foregroundStyle(Color("a\(schedule.subject?.subjectColor ?? "Blue")"))
+                    .frame(width: 20, height:20)
+                    .padding()
+            }
             
             VStack(alignment: .leading, spacing: 0){
                 Text(schedule.subject?.subjectName ?? "Untitled Subject").lineLimit(1)
@@ -39,10 +41,7 @@ struct ScheduleViewListItem: View {
                 }.foregroundStyle(Color("a\(schedule.subject?.subjectColor ?? "AccentColor")"))
                     .padding(.bottom, 6)
                 
-//                Text("\(formatDateToTimeAndHour(schedule.scheduleStartTime ?? Date())) to \(formatDateToTimeAndHour(schedule.scheduleEndTime ?? Date()))")
-//                    .opacity(0.5)
-//                    .padding(.bottom, 6)
-            }
+            }.padding(.trailing)
             Spacer()
             
             HStack {

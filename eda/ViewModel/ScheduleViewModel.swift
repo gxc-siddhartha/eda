@@ -548,7 +548,6 @@ class ScheduleViewModel: ObservableObject {
     func startEditing(_ schedule: Schedule) {
         logger.info("✏️ Starting to edit schedule: \(schedule.scheduleId?.uuidString ?? "unknown")")
         editingSchedule = schedule
-        
         // Populate form with current values
         scheduleStartTime = schedule.scheduleStartTime ?? Date()
         scheduleEndTime = schedule.scheduleEndTime ?? Date().addingTimeInterval(3600)

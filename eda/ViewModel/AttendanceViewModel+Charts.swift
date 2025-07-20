@@ -183,7 +183,7 @@ extension AttendanceViewModel {
         let mondayDate = calendar.date(byAdding: .day, value: -daysFromMonday, to: referenceDate)!
         
         // Generate Monday through Friday
-        let weekdays = (0..<5).compactMap { dayOffset in
+        let weekdays = (0..<6).compactMap { dayOffset in
             calendar.date(byAdding: .day, value: dayOffset, to: mondayDate)
         }
         

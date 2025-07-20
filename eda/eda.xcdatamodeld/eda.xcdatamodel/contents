@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23788.4" systemVersion="24F74" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
-    <entity name="Attendance" representedClassName="Attendance" syncable="YES" codeGenerationType="class">
+    <entity name="Attendance" representedClassName="Attendance" parentEntity="Subject" syncable="YES" codeGenerationType="class">
         <attribute name="attendanceDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="attendanceEndTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="attendanceEvent" optional="YES" attributeType="String"/>
         <attribute name="attendanceId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="attendanceLocation" optional="YES" attributeType="String"/>
         <attribute name="attendancePresence" optional="YES" attributeType="String"/>
+        <attribute name="attendanceStartTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="attendanceType" optional="YES" attributeType="String"/>
-        <relationship name="schedule" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Schedule" inverseName="attendances" inverseEntity="Schedule"/>
+        <relationship name="subject" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Subject" inverseName="attendances" inverseEntity="Subject"/>
     </entity>
     <entity name="Schedule" representedClassName="Schedule" syncable="YES" codeGenerationType="class">
         <attribute name="scheduleDay" optional="YES" attributeType="String"/>
@@ -14,7 +17,6 @@
         <attribute name="scheduleId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="scheduleLocation" optional="YES" attributeType="String"/>
         <attribute name="scheduleStartTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <relationship name="attendances" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Attendance" inverseName="schedule" inverseEntity="Attendance"/>
         <relationship name="subject" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Subject" inverseName="schedules" inverseEntity="Subject"/>
     </entity>
     <entity name="Semester" representedClassName="Semester" syncable="YES" codeGenerationType="class">
@@ -31,6 +33,7 @@
         <attribute name="subjectId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="subjectName" optional="YES" attributeType="String"/>
         <attribute name="subjectTeacher" optional="YES" attributeType="String"/>
+        <relationship name="attendances" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Attendance" inverseName="subject" inverseEntity="Attendance"/>
         <relationship name="schedules" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Schedule" inverseName="subject" inverseEntity="Schedule"/>
         <relationship name="semester" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Semester" inverseName="subjects" inverseEntity="Semester"/>
     </entity>

@@ -91,13 +91,9 @@ class SemesterRepository {
                         self.logger.error("Error updating semester: Semester not found with the id: \(semesterId.uuidString) and name: \(semesterData.name)")
                         return
                     }
-                    
-
-                    semester.semesterName = semesterData.name
-                    semester.semesterStartDate = semesterData.startDate
+                
                     semester.semesterEndDate = semesterData.endDate
                     semester.passingPercentage = semesterData.passingPercentage
-                    
               
                     try self.backgroundContext.save()
                     

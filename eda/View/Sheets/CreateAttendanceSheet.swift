@@ -44,7 +44,6 @@ struct CreateAttendanceSheet: View {
                             }
                         } else {
                             Picker( selection: $attendanceViewModel.selectedSchedule) {
-                        
                                 ForEach(attendanceViewModel.schedulesForSubject, id: \.scheduleId) { schedule in
                                     HStack(alignment: .top) {
                                         Text("\(schedule.scheduleDay ?? "Unknown Day"),")
@@ -61,6 +60,20 @@ struct CreateAttendanceSheet: View {
                                 Text("Schedule").fontWeight(Font.Weight.semibold)
                             }
                             .pickerStyle(.inline)
+                            .onChange(of: attendanceViewModel.selectedSchedule) { oldValue, newValue in
+                                // Debug log when schedule changes
+                                if let schedule = newValue {
+                                    print("🔍 DEBUG: Schedule selected - \(schedule.scheduleDay ?? "Unknown") at \(schedule.scheduleStartTime?.formatted(date: .omitted, time: .shortened) ?? "Unknown time")")
+                                    
+                                    // Ensure times are properly set
+                                    if let startTime = schedule.scheduleStartTime,
+                                       let endTime = schedule.scheduleEndTime {
+                                        attendanceViewModel.attendanceStartTime = startTime
+                                        attendanceViewModel.attendanceEndTime = endTime
+                                        print("🔍 DEBUG: Times updated - Start: \(startTime.formatted(date: .omitted, time: .shortened)), End: \(endTime.formatted(date: .omitted, time: .shortened))")
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -136,6 +149,7 @@ struct CreateAttendanceSheet: View {
             
             .onAppear {
                 Task {
+                    // Set default values if not already set
                     if attendanceViewModel.attendanceType.isEmpty {
                         attendanceViewModel.attendanceType = attendanceViewModel.availableAttendanceTypes.first ?? "Theory"
                     }
@@ -143,18 +157,17 @@ struct CreateAttendanceSheet: View {
                         attendanceViewModel.attendancePresent = "Present"
                     }
                     
+                    // Clear any previous selections to ensure fresh state
                     attendanceViewModel.selectedSubject = nil
+                    attendanceViewModel.selectedSchedule = nil
                     attendanceViewModel.schedulesForSubject = []
                     
-//                    // Auto-select first subject if available and none selected
-//                    if attendanceViewModel.selectedSubject == nil && !subjectViewModel.subjectsList.isEmpty {
-//                        attendanceViewModel.selectedSubject = subjectViewModel.subjectsList.first
-//                        // Load schedules for the preselected subject
-//                        try await loadSchedulesForSubject(attendanceViewModel.selectedSubject)
-//                    }
+                    // Reset times to neutral values
+                    let calendar = Calendar.current
+                    let startOfDay = calendar.startOfDay(for: Date())
+                    attendanceViewModel.attendanceStartTime = calendar.date(byAdding: .hour, value: 9, to: startOfDay) ?? startOfDay
+                    attendanceViewModel.attendanceEndTime = calendar.date(byAdding: .hour, value: 10, to: startOfDay) ?? startOfDay
                 }
-                // Set default values if not already set
-               
             }
         }
     }

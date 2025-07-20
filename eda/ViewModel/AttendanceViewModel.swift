@@ -1,10 +1,3 @@
-//
-//  AttendanceViewModel.swift
-//  eda
-//
-//  Created by Siddhartha Srivastava on 13/07/25.
-//
-
 import Foundation
 import SwiftUI
 import CoreData
@@ -74,7 +67,7 @@ enum AttendanceViewModelError: LocalizedError {
         case .userCancelled:
             return "User cancelled the operation"
         case .duplicateAttendance:
-            return "Attendance already exists for this schedule and event"
+            return "Attendance already exists for this subject and time"
         case .attendanceNotFound:
             return "The requested attendance could not be found"
         case .scheduleNotFound:
@@ -109,7 +102,7 @@ enum AttendanceViewModelError: LocalizedError {
         case .userCancelled:
             return "No action needed"
         case .duplicateAttendance:
-            return "Please choose a different event name or update existing attendance"
+            return "Please choose a different time or update existing attendance"
         case .attendanceNotFound, .scheduleNotFound, .subjectNotFound:
             return "Refresh the list and try again"
         case .operationTimeout:
@@ -165,14 +158,28 @@ class AttendanceViewModel: ObservableObject {
     @Published var attendancePresent: String = "Present"
     @Published var attendanceEvent: String = ""
     @Published var attendanceDate: Date = Date()
-    @Published var selectedSchedule: Schedule? = nil
+    @Published var selectedSchedule: Schedule? = nil {
+        didSet {
+            // Auto-populate timing and location when schedule changes
+            if let schedule = selectedSchedule {
+                attendanceStartTime = schedule.scheduleStartTime ?? Date()
+                attendanceEndTime = schedule.scheduleEndTime ?? Date()
+                attendanceLocation = schedule.scheduleLocation ?? ""
+                logger.debug("✅ Auto-populated timing from schedule: \(schedule.scheduleDay ?? "Unknown")")
+            }
+        }
+    }
+    
+    // MARK: - New Form Properties for Timing
+    @Published var attendanceStartTime: Date = Date()
+    @Published var attendanceEndTime: Date = Date()
+    @Published var attendanceLocation: String = ""
     
     // MARK: Schedules
     @Published var schedulesForSubject: [Schedule] = []
     
     // MARK: Info Alert Properties
     @Published var infoAlertForContentView: Bool = false
-
     @Published var infoAlertMessage: String = ""
     @Published var infoAlertTitle: String = ""
     
@@ -261,7 +268,10 @@ class AttendanceViewModel: ObservableObject {
                 try await self.repository.getAllAttendance(for: subject)
             }
             
-            attendanceForSelectedSubject = attendance
+            loadingState = .success
+            await MainActor.run {
+                self.attendanceForSelectedSubject = attendance
+            }
             updateWeeklyChartData()
 
             logger.info("✅ Successfully loaded \(attendance.count) attendance records for subject")
@@ -306,29 +316,51 @@ class AttendanceViewModel: ObservableObject {
             throw error
         }
         
-        logger.info("💾 Creating attendance for schedule: \(schedule.scheduleId?.uuidString ?? "unknown")")
+        guard let subject = schedule.subject else {
+            let error = AttendanceViewModelError.noSubjectSelected
+            await handleError(error, operation: "create attendance")
+            throw error
+        }
+        
+        // DEBUG: Log detailed information about what we're trying to create
+        logger.info("🔍 DEBUG: Creating attendance with details:")
+        logger.info("   Subject: \(subject.subjectName ?? "unknown")")
+        logger.info("   Date: \(self.attendanceDate)")
+        logger.info("   Start Time: \(self.attendanceStartTime)")
+        logger.info("   End Time: \(self.attendanceEndTime)")
+        logger.info("   Schedule Day: \(schedule.scheduleDay ?? "unknown")")
+        logger.info("   Schedule Start Time: \(schedule.scheduleStartTime ?? Date())")
+        
+        logger.info("💾 Creating attendance for subject: \(subject.subjectName ?? "unknown")")
         loadingState = .loading
         
         do {
             // Validate input
             try await validateAttendanceData()
             
-            // Create attendance data
+            // Create attendance data with timing information
             let attendanceData = AttendanceData(
                 attendanceType: attendanceType.trimmingCharacters(in: .whitespacesAndNewlines),
                 attendancePresent: attendancePresent.trimmingCharacters(in: .whitespacesAndNewlines),
                 attendanceEvent: attendanceEvent.trimmingCharacters(in: .whitespacesAndNewlines),
-                attendanceDate: attendanceDate
+                attendanceDate: attendanceDate,
+                attendanceStartTime: attendanceStartTime,
+                attendanceEndTime: attendanceEndTime,
+                attendanceLocation: attendanceLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : attendanceLocation.trimmingCharacters(in: .whitespacesAndNewlines)
             )
             
-            // Create attendance
+            // Create attendance with subject (not schedule)
             if(try await validateAttendanceDate() == false) {
-                let wrappedError =  await wrapError(AttendanceViewModelError.invalidAttendanceData,context:  "create attendance")
+                let wrappedError = await wrapError(AttendanceViewModelError.invalidAttendanceData, context: "create attendance")
                 throw wrappedError
             }
+            
             let newAttendance = try await withTimeout(operationTimeout) {
-                try await self.repository.createAttendance(attendanceData: attendanceData, for: schedule)
+                try await self.repository.createAttendance(attendanceData: attendanceData, for: subject)
             }
+            
+            // DEBUG: Log success
+            logger.info("✅ DEBUG: Attendance created successfully with ID: \(newAttendance.attendanceId?.uuidString ?? "unknown")")
             
             // Update local state
             await refreshAttendanceData()
@@ -343,7 +375,7 @@ class AttendanceViewModel: ObservableObject {
             await MainActor.run {
                 self.masterViewModel.showAlert = true
                 self.masterViewModel.alertTitle = "Attendance Created"
-                self.masterViewModel.alertMessage = "Attendance for \(schedule.subject?.subjectName?.lowercased() ?? "unknown subject".lowercased()) has been created, you can view it in the attendance page for that subject."
+                self.masterViewModel.alertMessage = "Attendance for \(subject.subjectName?.lowercased() ?? "unknown subject".lowercased()) has been created, you can view it in the attendance page for that subject."
             }
             
             logger.info("✅ Attendance created successfully")
@@ -370,14 +402,17 @@ class AttendanceViewModel: ObservableObject {
         
         do {
             // Validate input
-            try await validateAttendanceData()
+            try await validateAttendanceDataForEditing()
             
-            // Create attendance data
+            // Create attendance data with timing information
             let attendanceData = AttendanceData(
                 attendanceType: attendanceType.trimmingCharacters(in: .whitespacesAndNewlines),
                 attendancePresent: attendancePresent.trimmingCharacters(in: .whitespacesAndNewlines),
                 attendanceEvent: attendanceEvent.trimmingCharacters(in: .whitespacesAndNewlines),
-                attendanceDate: attendanceDate
+                attendanceDate: attendanceDate,
+                attendanceStartTime: attendanceStartTime,
+                attendanceEndTime: attendanceEndTime,
+                attendanceLocation: attendanceLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : attendanceLocation.trimmingCharacters(in: .whitespacesAndNewlines)
             )
             
             // Update attendance
@@ -387,14 +422,15 @@ class AttendanceViewModel: ObservableObject {
             
             // Update local state
             await refreshAttendanceData()
+            loadingState = .success
+            
+            await MainActor.run {
+                self.presentAttendanceCreateSheet = false
+            }
             
             // Clear form and close sheet
             clearForm()
             clearEditingState()
-            presentAttendanceEditSheet = false
-            loadingState = .success
-            
-            await showSuccess(title: "Attendance Updated", message: "Attendance has been updated successfully!")
             
             logger.info("✅ Attendance updated successfully")
             return updatedAttendance
@@ -446,36 +482,40 @@ class AttendanceViewModel: ObservableObject {
         logger.info("🔄 Refreshing attendance data...")
         loadingState = .loading
 
-            await refreshAttendanceData()
-            loadingState = .success
-            await showSuccess(title: "Data Refreshed", message: "Attendance data has been updated.")
-     
+        await refreshAttendanceData()
+        loadingState = .success
+        await showSuccess(title: "Data Refreshed", message: "Attendance data has been updated.")
     }
     
     private func refreshAttendanceData() async {
         do {
-               if let subject = selectedSubject {
-                   try await loadAttendanceForSubject(subject)
-                   try await loadAttendanceForDate(selectedDate, subject: subject)
-               }
-               // Update chart data after refreshing
-               updateWeeklyChartData()
-           } catch {
-               logger.error("❌ Failed to refresh attendance data: \(error.localizedDescription)")
-           }
+            if let subject = selectedSubject {
+                try await loadAttendanceForSubject(subject)
+            }
+            // Update chart data after refreshing
+            updateWeeklyChartData()
+        } catch {
+            logger.error("❌ Failed to refresh attendance data: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - Edit Management
     func startEditing(_ attendance: Attendance) {
+        loadingState = .success
         logger.info("✏️ Starting to edit attendance: \(attendance.attendanceId?.uuidString ?? "unknown")")
         editingAttendance = attendance
-        
+
         // Populate form with current values
         attendanceType = attendance.attendanceType ?? ""
         attendancePresent = attendance.attendancePresence ?? "Present"
         attendanceEvent = attendance.attendanceEvent ?? ""
         attendanceDate = attendance.attendanceDate ?? Date()
-        selectedSchedule = attendance.schedule
+        attendanceStartTime = attendance.attendanceStartTime ?? Date()
+        attendanceEndTime = attendance.attendanceEndTime ?? Date()
+        attendanceLocation = attendance.attendanceLocation ?? ""
+        
+        // Note: We don't set selectedSchedule since attendance is now independent
+        // Users can manually adjust timing if needed
         
         presentAttendanceEditSheet = true
     }
@@ -498,6 +538,7 @@ class AttendanceViewModel: ObservableObject {
         let trimmedType = attendanceType.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPresent = attendancePresent.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedEvent = attendanceEvent.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLocation = attendanceLocation.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedType.isEmpty else {
             throw AttendanceViewModelError.validationFailed("Attendance type cannot be empty")
@@ -515,6 +556,10 @@ class AttendanceViewModel: ObservableObject {
             throw AttendanceViewModelError.validationFailed("Attendance event cannot exceed 100 characters")
         }
         
+        guard trimmedLocation.count <= 100 else {
+            throw AttendanceViewModelError.validationFailed("Attendance location cannot exceed 100 characters")
+        }
+        
         guard availablePresenceStatus.contains(trimmedPresent) else {
             throw AttendanceViewModelError.validationFailed("Please select a valid presence status")
         }
@@ -523,11 +568,55 @@ class AttendanceViewModel: ObservableObject {
             throw AttendanceViewModelError.validationFailed("Please select a schedule")
         }
         
+        // Validate timing
+        guard attendanceStartTime < attendanceEndTime else {
+            throw AttendanceViewModelError.validationFailed("End time must be after start time")
+        }
+        
         // Validate attendance date
         guard try await validateAttendanceDate() else {
             throw AttendanceViewModelError.invalidDate
         }
         
+        logger.debug("✅ Attendance data validation passed")
+    }
+    
+    private func validateAttendanceDataForEditing() async throws {
+        logger.debug("🔍 Validating attendance data...")
+        
+        let trimmedType = attendanceType.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPresent = attendancePresent.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEvent = attendanceEvent.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLocation = attendanceLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedType.isEmpty else {
+            throw AttendanceViewModelError.validationFailed("Attendance type cannot be empty")
+        }
+        
+        guard !trimmedPresent.isEmpty else {
+            throw AttendanceViewModelError.validationFailed("Attendance presence status cannot be empty")
+        }
+
+        guard trimmedType.count <= 50 else {
+            throw AttendanceViewModelError.validationFailed("Attendance type cannot exceed 50 characters")
+        }
+        
+        guard trimmedEvent.count <= 100 else {
+            throw AttendanceViewModelError.validationFailed("Attendance event cannot exceed 100 characters")
+        }
+        
+        guard trimmedLocation.count <= 100 else {
+            throw AttendanceViewModelError.validationFailed("Attendance location cannot exceed 100 characters")
+        }
+        
+        guard availablePresenceStatus.contains(trimmedPresent) else {
+            throw AttendanceViewModelError.validationFailed("Please select a valid presence status")
+        }
+        
+        // Validate timing
+        guard attendanceStartTime < attendanceEndTime else {
+            throw AttendanceViewModelError.validationFailed("End time must be after start time")
+        }
         logger.debug("✅ Attendance data validation passed")
     }
     
@@ -603,8 +692,6 @@ class AttendanceViewModel: ObservableObject {
             switch repositoryError {
             case .attendanceNotFound(let details):
                 return .attendanceNotFound(details)
-            case .scheduleNotFound(let details):
-                return .scheduleNotFound(details)
             case .subjectNotFound(let details):
                 return .subjectNotFound(details)
             case .duplicateAttendance(let details):
@@ -670,13 +757,24 @@ class AttendanceViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Utility Methods
+   
+  
     func clearForm() {
         attendanceType = ""
         attendancePresent = "Present"
         attendanceEvent = ""
         attendanceDate = Date()
+        attendanceLocation = ""
+        
+        // Clear schedule first, then reset times to avoid stale data
         selectedSchedule = nil
+        
+        // Reset times to a neutral state (start of current day)
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        attendanceStartTime = calendar.date(byAdding: .hour, value: 9, to: startOfDay) ?? startOfDay
+        attendanceEndTime = calendar.date(byAdding: .hour, value: 10, to: startOfDay) ?? startOfDay
+        
         logger.debug("🧹 Attendance form cleared")
     }
     
@@ -699,27 +797,21 @@ class AttendanceViewModel: ObservableObject {
     
     func changeSelectedSubject(_ newSubject: Subject?) async {
         selectedSubject = newSubject
-            do {
-                if let subject = newSubject {
-                    try await loadAttendanceForSubject(subject)
-                } else {
-                    attendanceForSelectedSubject = []
-                    attendanceForSelectedDate = []
-                }
-                // Update chart data when subject changes
-//                updateWeeklyChartData()
-            } catch {
-                logger.error("❌ Failed to load attendance for new subject: \(error.localizedDescription)")
+        do {
+            if let subject = newSubject {
+                try await loadAttendanceForSubject(subject)
+            } else {
+                attendanceForSelectedSubject = []
+                attendanceForSelectedDate = []
             }
+        } catch {
+            logger.error("❌ Failed to load attendance for new subject: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - Query Methods
     func getAttendance(by id: UUID) async throws -> Attendance? {
         return try await repository.getAttendanceById(id)
-    }
-    
-    func getAttendanceForSchedule(_ scheduleId: UUID) async throws -> [Attendance] {
-        return try await repository.getAllAttendanceForSchedule(scheduleId)
     }
     
     func getAttendanceForDateRange(startDate: Date, endDate: Date, subject: Subject) async throws -> [Attendance] {
@@ -751,13 +843,25 @@ class AttendanceViewModel: ObservableObject {
                !trimmedPresent.isEmpty &&
                trimmedType.count >= 2 &&
                trimmedType.count <= 50 &&
-
                availablePresenceStatus.contains(trimmedPresent) &&
-               selectedSchedule != nil
+               selectedSchedule != nil &&
+               attendanceStartTime < attendanceEndTime
+    }
+    
+    var isFormValidForUpdate: Bool {
+        let trimmedType = attendanceType.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPresent = attendancePresent.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        return !trimmedType.isEmpty &&
+               !trimmedPresent.isEmpty &&
+               trimmedType.count >= 2 &&
+               trimmedType.count <= 50 &&
+               availablePresenceStatus.contains(trimmedPresent) &&
+               attendanceStartTime < attendanceEndTime
     }
     
     var canUpdateAttendance: Bool {
-        isFormValid && !loadingState.isLoading && editingAttendance != nil
+        isFormValidForUpdate && !loadingState.isLoading && editingAttendance != nil
     }
     
     var isEditing: Bool {
@@ -774,6 +878,18 @@ class AttendanceViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: attendanceDate)
+    }
+    
+    var formattedAttendanceStartTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: attendanceStartTime)
+    }
+    
+    var formattedAttendanceEndTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: attendanceEndTime)
     }
     
     var hasAvailableSchedules: Bool {
@@ -812,28 +928,17 @@ class AttendanceViewModel: ObservableObject {
         !schedulesForSubject.isEmpty
     }
     
-    // MARK: - Date Range Utilities
-    var maxAllowedDate: Date {
-        if let schedule = selectedSchedule,
-           let subject = schedule.subject,
-           let semester = subject.semester,
-           let semesterEndDate = semester.semesterEndDate {
-            return semesterEndDate
-        }
-        return Date() // Fallback to today
-    }
-    
     // MARK: – Raw Stats
-        private var totalSessions: Int {
-            attendanceForSelectedSubject.count
-        }
-        private var presentSessions: Int {
-            attendanceForSelectedSubject
-              .filter { $0.attendancePresence == "Present"
-                     || $0.attendancePresence == "Medical Substitution" }
-              .count
-        }
-    
+    private var totalSessions: Int {
+        attendanceForSelectedSubject.count
+    }
+    private var presentSessions: Int {
+        attendanceForSelectedSubject
+          .filter { $0.attendancePresence == "Present"
+                 || $0.attendancePresence == "Medical Substitution" }
+          .count
+    }
+
     var minAllowedDate: Date {
         if let schedule = selectedSchedule,
            let subject = schedule.subject,
@@ -844,28 +949,38 @@ class AttendanceViewModel: ObservableObject {
         return Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
     }
     
+    var maxAllowedDate: Date {
+        if let schedule = selectedSchedule,
+           let subject = schedule.subject,
+           let semester = subject.semester,
+           let semesterEndDate = semester.semesterEndDate {
+            return semesterEndDate
+        }
+        return Date() // Fallback to today
+    }
+    
     var allowedWeekday: String? {
         return selectedSchedule?.scheduleDay
     }
     
     // MARK: – Inverse Attendance Calculators
-        func maxSkippableClasses(beforeDroppingBelow thresholdPercent: Double) -> Int {
-            let N = Double(totalSessions)
-            let P = Double(presentSessions)
-            let t = thresholdPercent / 100.0
-            guard N > 0, t > 0 else { return 0 }
-            let raw = (P - t * N) / t
-            return max(0, Int(floor(raw)))
-        }
+    func maxSkippableClasses(beforeDroppingBelow thresholdPercent: Double) -> Int {
+        let N = Double(totalSessions)
+        let P = Double(presentSessions)
+        let t = thresholdPercent / 100.0
+        guard N > 0, t > 0 else { return 0 }
+        let raw = (P - t * N) / t
+        return max(0, Int(floor(raw)))
+    }
 
-        func presencesNeeded(toReach thresholdPercent: Double) -> Int {
-            let N = Double(totalSessions)
-            let P = Double(presentSessions)
-            let t = thresholdPercent / 100.0
-            guard N > 0, P / N < t else { return 0 }
-            let raw = (t * N - P) / (1.0 - t)
-            return max(0, Int(ceil(raw)))
-        }
+    func presencesNeeded(toReach thresholdPercent: Double) -> Int {
+        let N = Double(totalSessions)
+        let P = Double(presentSessions)
+        let t = thresholdPercent / 100.0
+        guard N > 0, P / N < t else { return 0 }
+        let raw = (t * N - P) / (1.0 - t)
+        return max(0, Int(ceil(raw)))
+    }
     
     // MARK: - Date Filtering Helper
     func isDateAllowed(_ date: Date) -> Bool {
