@@ -8,66 +8,91 @@
 import SwiftUI
 
 struct CreateSemesterSheet: View {
-    @EnvironmentObject private var semesterViewModel : SemesterViewModel
+    @EnvironmentObject private var semesterViewModel: SemesterViewModel
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Picker("Select Semester", selection: $semesterViewModel.selectedSemesterName) {
-                        ForEach(semesterViewModel.semesterOptions, id: \.self) {semester in
+                    Picker(
+                        "Select Semester",
+                        selection: $semesterViewModel.selectedSemesterName
+                    ) {
+                        ForEach(semesterViewModel.semesterOptions, id: \.self) {
+                            semester in
                             Text(semester)
                         }
-                    
-                    }.pickerStyle(.menu).frame(height:22)
-                    
-                  
-                  
+
+                    }.pickerStyle(.menu).frame(height: 22)
+
                 }
                 Section("Attendance Requirement") {
                     HStack {
                         Text("Percentage").padding(.trailing)
-                        TextField("75", text: $semesterViewModel.passingPercentage)
+                        TextField(
+                            "75",
+                            text: $semesterViewModel.passingPercentage
+                        )
                     }
-                    
+
                 }
-                
+
                 Section("Start Date") {
-                    DatePicker("Start Date", selection: $semesterViewModel.semesterStartDate, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
+                    DatePicker(
+                        "Start Date",
+                        selection: $semesterViewModel.semesterStartDate,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.graphical)
                 }
-                
+
                 Section("End Date") {
-                    DatePicker("Start Date", selection: $semesterViewModel.semesterEndDate, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
+                    DatePicker(
+                        "Start Date",
+                        selection: $semesterViewModel.semesterEndDate,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.graphical)
                 }
-                
-                
-            }.navigationTitle(Text("Create Semester")).navigationBarTitleDisplayMode(.inline)
+
+            }.navigationTitle(Text("Create Semester"))
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackgroundVisibility(.visible, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             Task {
-                                if(semesterViewModel.isFormValid) {
-                                   _ = try await semesterViewModel.createSemester()
+                                if semesterViewModel.isFormValid {
+                                    _ =
+                                        try await semesterViewModel
+                                        .createSemester()
                                 }
                             }
                         } label: {
-                            Text("Done").bold().disabled(!semesterViewModel.isFormValid)
+                            Text("Done").bold().disabled(
+                                !semesterViewModel.isFormValid
+                            )
                         }
                     }
-                    
+
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
-                            semesterViewModel.presentSemesterDetailsSheet = false
+                            semesterViewModel.presentSemesterDetailsSheet =
+                                false
                         } label: {
                             Text("Close")
                         }
                     }
                 }
-                .alert(isPresented: $semesterViewModel.showErrorAlert, content: {
-                    Alert(title: Text(semesterViewModel.alertTitle), message: Text(semesterViewModel.alertMessage), dismissButton: .default(Text("Ok")))
-                })
+                .alert(
+                    isPresented: $semesterViewModel.showErrorAlert,
+                    content: {
+                        Alert(
+                            title: Text(semesterViewModel.alertTitle),
+                            message: Text(semesterViewModel.alertMessage),
+                            dismissButton: .default(Text("Ok"))
+                        )
+                    }
+                )
         }
     }
 }

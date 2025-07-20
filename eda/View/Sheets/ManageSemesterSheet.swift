@@ -16,26 +16,32 @@ struct ManageSemesterSheet: View {
         NavigationStack {
             List {
                 Section("My Semesters") {
-                    ForEach(semesterViewModel.semesterList, id: \.semesterId) { semester in
+                    ForEach(semesterViewModel.semesterList, id: \.semesterId) {
+                        semester in
                         HStack {
                             Text(semester.semesterName ?? "")
                             Spacer()
-                            
+
                             // Delete Button
                             Button {
                                 semesterViewModel.startEditing(semester)
-                                semesterViewModel.presentSemesterEditSheet = true
+                                semesterViewModel.presentSemesterEditSheet =
+                                    true
                             } label: {
-                                Image(systemName: "pencil").foregroundStyle(Color.accentColor)
+                                Image(systemName: "pencil").foregroundStyle(
+                                    Color.accentColor
+                                )
                             }.padding(.trailing)
                                 .buttonStyle(.plain)
-                            
+
                             // Delete Button
                             Button {
                                 semesterToDelete = semester
                                 showDeleteAlert = true
                             } label: {
-                                Image(systemName: "trash").foregroundStyle(Color.red)
+                                Image(systemName: "trash").foregroundStyle(
+                                    Color.red
+                                )
                             }.buttonStyle(.plain)
                         }
                     }
@@ -44,7 +50,7 @@ struct ManageSemesterSheet: View {
             .navigationTitle("Manage Semesters")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-                
+
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
@@ -52,31 +58,42 @@ struct ManageSemesterSheet: View {
                     }
                 }
             }
-            .sheet(isPresented: $semesterViewModel.presentSemesterEditSheet ){
+            .sheet(isPresented: $semesterViewModel.presentSemesterEditSheet) {
                 EditSemesterSheet()
                     .presentationDragIndicator(.visible)
-                
+
             }
 
             .alert(isPresented: $showDeleteAlert) {
                 let toDelete = semesterToDelete!
                 return Alert(
                     title: Text("Delete Semester"),
-                    message: Text(" This will remove all subjects and schedules associated with this semester. Are you sure you want to delete this semester?"),
+                    message: Text(
+                        " This will remove all subjects and schedules associated with this semester. Are you sure you want to delete this semester?"
+                    ),
                     primaryButton: .destructive(Text("Delete")) {
                         Task {
                             try await semesterViewModel.deleteSemester(toDelete)
-                            if(semesterViewModel.selectedSemesterForUser != nil) {
-                                try await subjectViewModel.loadSubjects(semester: semesterViewModel.selectedSemesterForUser!)
+                            if semesterViewModel.selectedSemesterForUser != nil
+                            {
+                                try await subjectViewModel.loadSubjects(
+                                    semester: semesterViewModel
+                                        .selectedSemesterForUser!
+                                )
                                 schedulesViewModel.selectedDate = Date()
-                                try await schedulesViewModel.loadSchedules(for: Date(),semester:semesterViewModel.selectedSemesterForUser!)
+                                try await schedulesViewModel.loadSchedules(
+                                    for: Date(),
+                                    semester: semesterViewModel
+                                        .selectedSemesterForUser!
+                                )
                             } else {
                                 subjectViewModel.subjectsList.removeAll()
                                 schedulesViewModel.schedulesList.removeAll()
-                                schedulesViewModel.schedulesForSelectedDate.removeAll()
+                                schedulesViewModel.schedulesForSelectedDate
+                                    .removeAll()
                                 schedulesViewModel.todaySchedules.removeAll()
                                 schedulesViewModel.currentActiveSchedule = nil
-                                
+
                             }
                         }
                     },

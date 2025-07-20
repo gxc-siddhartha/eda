@@ -46,10 +46,11 @@ struct AttendanceView: View {
                     Text(subject.subjectName ?? "")
                         .font(.headline)
                         .fontWeight(.semibold)
-                        
+                    
                     Text(subject.subjectTeacher ?? "")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    
                 }
             }
         }
