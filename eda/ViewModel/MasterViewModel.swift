@@ -332,6 +332,11 @@ class MasterViewModel: ObservableObject {
             importState = .completed(result)
             
             let successMessage = createSuccessMessage(from: result, type: "subjects")
+            
+            presentImportSheet = false
+            
+            try await Task.sleep(nanoseconds: 500_000_000) // ✅ 500ms
+
             showSuccessAlert(title: "Subject Import Completed", message: successMessage)
             
             logger.info("✅ Subject import completed successfully: \(result.successfulImports)/\(result.totalRows) subjects imported")
@@ -360,6 +365,11 @@ class MasterViewModel: ObservableObject {
             importState = .completed(result)
             
             let successMessage = createSuccessMessage(from: result, type: "schedules")
+            
+            presentImportSheet = false
+            
+            try await Task.sleep(nanoseconds: 500_000_000) // ✅ 500ms
+
             showSuccessAlert(title: "Schedule Import Completed", message: successMessage)
             
             logger.info("✅ Schedule import completed successfully: \(result.successfulImports)/\(result.totalRows) schedules imported")

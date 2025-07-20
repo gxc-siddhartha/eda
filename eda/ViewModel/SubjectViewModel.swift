@@ -128,6 +128,11 @@ class SubjectViewModel: ObservableObject {
     private let repository: SubjectRepository
     private let logger = Logger(subsystem: "com.eda.app", category: "SubjectViewModel")
     
+    // MARK: - Cache Properties (ADD THESE)
+    private var subjectCache: [String: [Subject]] = [:]
+    private var subjectCacheTimestamp: [String: Date] = [:]
+    private let subjectCacheValidityDuration: TimeInterval = 600
+    
     // MARK: - Published Properties
     @Published var subjectsList: [Subject] = []
     @Published var loadingState: SubjectLoadingState = .idle
@@ -181,15 +186,8 @@ class SubjectViewModel: ObservableObject {
         
         guard !isInitialized else {
             logger.debug("🔄 SubjectViewModel already initialized")
-            do {
-                try await loadSubjects(semester: semester)
-
-            } catch {
-                print("Error from SubjectViewModel, while calling initialize: \(error.localizedDescription)")
-            }
-            return
+            return // ✅ Just return, don't reload
         }
-        
         loadingState = .loading
         
         do {
@@ -204,14 +202,84 @@ class SubjectViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Subject Cache Management (ADD THIS ENTIRE SECTION)
+
+    /// Creates a unique cache key for semester
+    private func subjectCacheKey(for semester: Semester?) -> String {
+        let semesterName = semester?.semesterName ?? "no-semester"
+        let semesterId = semester?.semesterId?.uuidString ?? "no-id"
+        return "subjects-\(semesterName)-\(semesterId)"
+    }
+
+    /// Checks if cached data is still valid (not expired)
+    private func isSubjectCacheValid(for key: String) -> Bool {
+        guard let timestamp = subjectCacheTimestamp[key] else { return false }
+        return Date().timeIntervalSince(timestamp) < subjectCacheValidityDuration
+    }
+
+    /// Stores subjects in cache with current timestamp
+    private func cacheSubjects(_ subjects: [Subject], for key: String) {
+        subjectCache[key] = subjects
+        subjectCacheTimestamp[key] = Date()
+        logger.debug("📋 Cached \(subjects.count) subjects for key: \(key)")
+    }
+
+    /// Retrieves cached subjects if available and valid
+    private func getCachedSubjects(for key: String) -> [Subject]? {
+        guard isSubjectCacheValid(for: key), let subjects = subjectCache[key] else {
+            return nil
+        }
+        logger.debug("📋 Using cached subjects for key: \(key) (\(subjects.count) items)")
+        return subjects
+    }
+
+    /// Invalidates cache for a specific key
+    private func invalidateSubjectCache(for key: String) {
+        subjectCache.removeValue(forKey: key)
+        subjectCacheTimestamp.removeValue(forKey: key)
+        logger.debug("🗑️ Invalidated subject cache for key: \(key)")
+    }
+
+    /// Clears expired cache entries
+    private func clearExpiredSubjectCache() {
+        let now = Date()
+        let expiredKeys = subjectCacheTimestamp.compactMap { key, timestamp in
+            now.timeIntervalSince(timestamp) > subjectCacheValidityDuration ? key : nil
+        }
+        
+        for key in expiredKeys {
+            subjectCache.removeValue(forKey: key)
+            subjectCacheTimestamp.removeValue(forKey: key)
+        }
+        
+        if !expiredKeys.isEmpty {
+            logger.debug("🧹 Cleared \(expiredKeys.count) expired subject cache entries")
+        }
+    }
+    
     // MARK: - Core Operations
-    func loadSubjects(semester : Semester?) async throws {
-        if(semester == nil ) {
+    func loadSubjects(semester: Semester?) async throws {
+        if semester == nil {
             logger.warning("⚠️ Cannot load subjects: no semester selected")
             loadingState = .failure(.noSemesterSelected)
             return
         }
         
+        // Clear expired cache entries first
+        clearExpiredSubjectCache()
+        
+        // Generate cache key
+        let key = subjectCacheKey(for: semester)
+        
+        // Check cache first
+        if let cachedSubjects = getCachedSubjects(for: key) {
+            subjectsList = cachedSubjects
+            loadingState = .success
+            logger.info("✅ loadSubjects: Used cached data (\(cachedSubjects.count) subjects)")
+            return
+        }
+        
+        // Cache miss - load from database
         logger.info("📚 Loading subjects for semester: \(semester!.semesterName ?? "unknown")")
         loadingState = .loading
         
@@ -220,8 +288,14 @@ class SubjectViewModel: ObservableObject {
                 try await self.repository.getAllSubjects(for: semester!)
             }
             
+            // Cache the results
+            cacheSubjects(subjects, for: key)
+            
+            // Update UI
             subjectsList = subjects
-            logger.info("✅ Successfully loaded \(subjects.count) subjects")
+            loadingState = .success
+            
+            logger.info("✅ loadSubjects: Successfully loaded and cached \(subjects.count) subjects")
             
         } catch {
             let wrappedError = await wrapError(error, context: "loading subjects")
@@ -268,22 +342,22 @@ class SubjectViewModel: ObservableObject {
                 try await self.repository.createSubject(subjectData: subjectData, for: semester!)
             }
             
+            // Invalidate cache for the semester
+            let cacheKey = subjectCacheKey(for: semester)
+            invalidateSubjectCache(for: cacheKey)
+
             // Update local state
             subjectsList.append(newSubject)
             subjectsList.sort { ($0.subjectName ?? "") < ($1.subjectName ?? "") }
-            
+
             // Clear form and close sheet
             presentSubjectCreateSheet = false
             loadingState = .success
 
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            
-            await MainActor.run {
-                self.masterViewModel.showAlert = true
-                self.masterViewModel.alertTitle = "Subject Created"
-                self.masterViewModel.alertMessage = "\(subjectName) was successfully created."
-            }
-
+            self.masterViewModel.showAlert = true
+            self.masterViewModel.alertTitle = "Subject Created"
+            self.masterViewModel.alertMessage = "..."
+        
             
             logger.info("✅ Subject created successfully: \(newSubject.subjectName ?? "unnamed")")
             clearForm()
@@ -340,18 +414,24 @@ class SubjectViewModel: ObservableObject {
             let updatedSubject = try await withTimeout(operationTimeout) {
                 try await self.repository.updateSubject(subjectId: subjectId, subjectData: subjectData, for: semester!)
             }
-       
+
+            // ✅ UPDATE LOCAL STATE (ADD THIS SECTION)
+            if let index = subjectsList.firstIndex(where: { $0.subjectId == subjectId }) {
+                subjectsList[index] = updatedSubject
+                subjectsList.sort { ($0.subjectName ?? "") < ($1.subjectName ?? "") }
+                logger.debug("✅ Updated subject in local list: \(updatedSubject.subjectName ?? "unnamed")")
+            }
+
+            // Invalidate cache for the semester (but after updating local state)
+            let cacheKey = subjectCacheKey(for: semester)
+            invalidateSubjectCache(for: cacheKey)
+
             presentSubjectEditSheet = false
             loadingState = .success
             
-            
-            try await Task.sleep(nanoseconds: 5_000_000)
-            
-            await MainActor.run {
                 self.masterViewModel.showAlert = true
                 self.masterViewModel.alertTitle = "Subject Updated"
                 self.masterViewModel.alertMessage = "\(subjectName) was successfully updated."
-            }
             
             // Clear form and close sheet
             clearForm()
@@ -382,7 +462,11 @@ class SubjectViewModel: ObservableObject {
             try await withTimeout(operationTimeout) {
                 try await self.repository.deleteSubject(subjectId: subjectId)
             }
-            
+            // Invalidate cache (we don't have semester context, so clear all subject cache)
+            subjectCache.removeAll()
+            subjectCacheTimestamp.removeAll()
+            logger.debug("🗑️ Cleared all subject cache due to deletion")
+
             // Update local state
             subjectsList.removeAll { $0.subjectId == subjectId }
             

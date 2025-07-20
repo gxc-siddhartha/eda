@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Foundation
+import os.log
+
 
 
 struct HomeView: View {
@@ -22,6 +24,9 @@ struct HomeView: View {
     @State private var showSemesterDeleteAlert : Bool = false
     
     @State private var selectedSubjectForDeletion : Subject? = nil
+    
+    private let logger = Logger(subsystem: "com.eda.app", category: "HomeView")
+
     
     @Environment(\.scenePhase) private var scenePhase
     
@@ -162,11 +167,13 @@ struct HomeView: View {
                                         do {
                                             try await subjectViewModel.deleteSubject(selectedSubjectForDeletion!)
                                             
-                                            try await scheduleViewModel.loadSchedules(for: Date(), semester: semesterViewModel.selectedSemesterForUser!)
-                                
-                                              await scheduleViewModel.checkCurrentlyActiveSchedule(for: semesterViewModel.selectedSemesterForUser!)
+                                            // Refresh schedules since subject deletion affects them
+                                            if let semester = semesterViewModel.selectedSemesterForUser {
+                                                try await scheduleViewModel.loadSchedules(for: Date(), semester: semester)
+                                                await scheduleViewModel.checkCurrentlyActiveSchedule(for: semester)
+                                            }
                                         } catch {
-                                            // handle error if needed
+                                            print("Error deleting subject: \(error)")
                                         }
                                         showDeleteSubjectAlert = false
                                     }
@@ -177,32 +184,27 @@ struct HomeView: View {
                             )
                         }
             .task {
-                if(!subjectViewModel.isInitialized) {
-                    if(semesterViewModel.selectedSemesterForUser != nil ){
-                        await subjectViewModel.initialize(with: semesterViewModel.selectedSemesterForUser!)
-                    } else if(!semesterViewModel.semesterList.isEmpty) {
-                        await semesterViewModel.selectedSemesterForUser = semesterViewModel.semesterList[0] 
+                if !subjectViewModel.isInitialized {
+                    if let semester = semesterViewModel.selectedSemesterForUser {
+                        await subjectViewModel.initialize(with: semester)
+                    } else if !semesterViewModel.semesterList.isEmpty {
+                        let firstSemester = semesterViewModel.semesterList[0]
+                        semesterViewModel.selectedSemesterForUser = firstSemester
+                        await refreshAllData(for: firstSemester)
                     }
-                   
                 }
             }
             .onChange(of: scenePhase) { oldPhase, newPhase in
-                            if newPhase == .active {
-                                // The user has just swiped up / left your app
-                                if( semesterViewModel.selectedSemesterForUser != nil) {
-                                    Task {
-                                        try? await semesterViewModel.selectSemester(semesterViewModel.selectedSemesterForUser!)
-                                        try? await subjectViewModel.loadSubjects(semester: semesterViewModel.selectedSemesterForUser!)
-                                       
-                                          try await scheduleViewModel.loadSchedules(for: Date(), semester: semesterViewModel.selectedSemesterForUser!)
-                              
-                                            await scheduleViewModel.checkCurrentlyActiveSchedule(for: semesterViewModel.selectedSemesterForUser!)
-                                        }
-                                }
-                                
-                                
-                            }
-                        }
+                if newPhase == .active {
+                    guard semesterViewModel.selectedSemesterForUser != nil else { return }
+                    
+                    Task {
+                        // Use lightweight refresh for app returns (better UX)
+                        await lightweightRefresh()
+                    }
+                }
+            }
+                        
         }
         
     }
@@ -264,14 +266,7 @@ struct HomeView: View {
             ForEach(semesterViewModel.semesterList, id: \.semesterId) { semester in
                 Button {
                     Task {
-                        try? await semesterViewModel.selectSemester(semester)
-                        try? await subjectViewModel.loadSubjects(semester: semester)
-                        
-                       
-                          try await scheduleViewModel.loadSchedules(for: Date(), semester: semester)
-                       
-              
-                            await scheduleViewModel.checkCurrentlyActiveSchedule(for: semester)
+                        await refreshAllData(for: semester)
                         }
                     
                 } label: {
@@ -312,6 +307,62 @@ struct HomeView: View {
             }
         }
         .disabled(semesterViewModel.loadingState.isLoading)
+    }
+    
+    // MARK: - Data Loading (ADD THIS ENTIRE SECTION)
+
+    /// Centralized function to refresh all data for a semester in parallel
+    private func refreshAllData(for semester: Semester) async {
+        logger.debug("🔄 Refreshing all data for semester: \(semester.semesterName ?? "unknown")")
+        
+        await withTaskGroup(of: Void.self) { group in
+            // Load all data in parallel instead of sequential
+            group.addTask {
+                do {
+                    try await semesterViewModel.selectSemester(semester)
+                } catch {
+                    print("Error selecting semester: \(error)")
+                }
+            }
+            
+            group.addTask {
+                do {
+                    try await subjectViewModel.loadSubjects(semester: semester)
+                } catch {
+                    print("Error loading subjects: \(error)")
+                }
+            }
+            
+            group.addTask {
+                do {
+                    try await scheduleViewModel.loadSchedules(for: Date(), semester: semester)
+                } catch {
+                    print("Error loading schedules: \(error)")
+                }
+            }
+            
+            group.addTask {
+                await scheduleViewModel.checkCurrentlyActiveSchedule(for: semester)
+            }
+        }
+        
+        logger.debug("✅ Completed refreshing all data")
+    }
+
+    /// Quick refresh for active schedule only (lighter operation)
+    private func refreshActiveSchedule() async {
+        guard let semester = semesterViewModel.selectedSemesterForUser else { return }
+        await scheduleViewModel.checkCurrentlyActiveSchedule(for: semester)
+    }
+
+    /// Lightweight data refresh (only if data might be stale)
+    private func lightweightRefresh() async {
+        guard let semester = semesterViewModel.selectedSemesterForUser else { return }
+        
+        // Only refresh active schedule (fast operation)
+        await refreshActiveSchedule()
+        
+        // Could add timestamp-based refresh logic here later
     }
 }
 

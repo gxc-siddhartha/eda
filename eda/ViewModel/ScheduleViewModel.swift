@@ -135,6 +135,16 @@ enum ScheduleLoadingState {
 @MainActor
 class ScheduleViewModel: ObservableObject {
     private var masterViewModel: MasterViewModel = MasterViewModel.shared
+    
+    // MARK: - Cache Properties (ADD THESE)
+    private var scheduleCache: [String: [Schedule]] = [:]
+    private var cacheTimestamps: [String: Date] = [:]
+    private let cacheValidityDuration: TimeInterval = 300 // 5 minutes
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     // MARK: - Dependencies
     private let repository: ScheduleRepository
@@ -192,6 +202,8 @@ class ScheduleViewModel: ObservableObject {
     func initialize(with semester: Semester?) async {
         logger.info("🚀 Initializing ScheduleViewModel with semester: \(semester?.semesterName ?? "nil")")
         
+        performCacheMaintenance()
+        
         guard !isInitialized else {
             logger.debug("🔄 ScheduleViewModel already initialized")
             do {
@@ -225,6 +237,21 @@ class ScheduleViewModel: ObservableObject {
             return
         }
         
+        // Clear expired cache entries first
+        clearExpiredCache()
+        
+        // Generate cache key
+        let key = cacheKey(for: date, semester: semester)
+        
+        // Check cache first
+        if let cachedSchedules = getCachedSchedules(for: key) {
+            schedulesForSelectedDate = cachedSchedules
+            loadingState = .success
+            logger.info("✅ loadSchedulesForScheduleView: Used cached data (\(cachedSchedules.count) schedules)")
+            return
+        }
+        
+        // Cache miss - load from database
         logger.info("📅 Loading schedules for date: \(date) in semester: \(semester!.semesterName ?? "unknown")")
         loadingState = .loading
         
@@ -232,9 +259,15 @@ class ScheduleViewModel: ObservableObject {
             let schedules = try await withTimeout(operationTimeout) {
                 try await self.repository.getAllSchedules(for: date, semester: semester!)
             }
-            schedulesForSelectedDate = schedules
             
-            logger.info("✅ loadSchedulesForScheduleView: Successfully loaded \(schedules.count) schedules")
+            // Cache the results
+            cacheSchedules(schedules, for: key)
+            
+            // Update UI
+            schedulesForSelectedDate = schedules
+            loadingState = .success
+            
+            logger.info("✅ loadSchedulesForScheduleView: Successfully loaded and cached \(schedules.count) schedules")
             
         } catch {
             let wrappedError = await wrapError(error, context: "loading schedules")
@@ -243,14 +276,93 @@ class ScheduleViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Cache Management (ADD THIS ENTIRE SECTION)
+
+    /// Creates a unique cache key for date and semester combination
+    private func cacheKey(for date: Date, semester: Semester?) -> String {
+        let dateString = dateFormatter.string(from: date)
+        let semesterName = semester?.semesterName ?? "no-semester"
+        let semesterId = semester?.semesterId?.uuidString ?? "no-id"
+        return "\(dateString)-\(semesterName)-\(semesterId)"
+    }
+
+    /// Checks if cached data is still valid (not expired)
+    private func isCacheValid(for key: String) -> Bool {
+        guard let timestamp = cacheTimestamps[key] else { return false }
+        return Date().timeIntervalSince(timestamp) < cacheValidityDuration
+    }
+
+    /// Stores schedules in cache with current timestamp
+    private func cacheSchedules(_ schedules: [Schedule], for key: String) {
+        scheduleCache[key] = schedules
+        cacheTimestamps[key] = Date()
+        logger.debug("📋 Cached \(schedules.count) schedules for key: \(key)")
+    }
+
+    /// Retrieves cached schedules if available and valid
+    private func getCachedSchedules(for key: String) -> [Schedule]? {
+        guard isCacheValid(for: key), let schedules = scheduleCache[key] else {
+            return nil
+        }
+        logger.debug("📋 Using cached schedules for key: \(key) (\(schedules.count) items)")
+        return schedules
+    }
+
+    /// Invalidates cache for a specific key
+    private func invalidateCache(for key: String) {
+        scheduleCache.removeValue(forKey: key)
+        cacheTimestamps.removeValue(forKey: key)
+        logger.debug("🗑️ Invalidated cache for key: \(key)")
+    }
+
+    /// Clears expired cache entries
+    private func clearExpiredCache() {
+        let now = Date()
+        let expiredKeys = cacheTimestamps.compactMap { key, timestamp in
+            now.timeIntervalSince(timestamp) > cacheValidityDuration ? key : nil
+        }
+        
+        for key in expiredKeys {
+            scheduleCache.removeValue(forKey: key)
+            cacheTimestamps.removeValue(forKey: key)
+        }
+        
+        if !expiredKeys.isEmpty {
+            logger.debug("🧹 Cleared \(expiredKeys.count) expired cache entries")
+        }
+    }
+    
     // MARK: - Core Operations
     func loadSchedules(for date: Date, semester: Semester?) async throws {
         if semester == nil {
-            logger.warning("⚠️loadSchedulesForScheduleView: Cannot load schedules: no semester selected")
+            logger.warning("⚠️loadSchedules: Cannot load schedules: no semester selected")
             loadingState = .failure(.noSemesterSelected)
             return
         }
         
+        // Clear expired cache entries first
+        clearExpiredCache()
+        
+        // Generate cache key
+        let key = cacheKey(for: date, semester: semester)
+        
+        // Check cache first
+        if let cachedSchedules = getCachedSchedules(for: key) {
+            schedulesList = cachedSchedules
+            
+            // Update today's schedules if selected date is today
+            if Calendar.current.isDateInToday(date) {
+                todaySchedules = cachedSchedules
+            } else {
+                todaySchedules = []
+            }
+            
+            loadingState = .success
+            logger.info("✅ loadSchedules: Used cached data (\(cachedSchedules.count) schedules)")
+            return
+        }
+        
+        // Cache miss - load from database
         logger.info("📅 Loading schedules for date: \(date) in semester: \(semester!.semesterName ?? "unknown")")
         loadingState = .loading
         
@@ -259,16 +371,21 @@ class ScheduleViewModel: ObservableObject {
                 try await self.repository.getAllSchedules(for: date, semester: semester!)
             }
             
+            // Cache the results
+            cacheSchedules(schedules, for: key)
+            
+            // Update UI
             schedulesList = schedules
             
             // Update today's schedules if selected date is today
             if Calendar.current.isDateInToday(date) {
                 todaySchedules = schedules
-            } else{
+            } else {
                 todaySchedules = []
             }
             
-            logger.info("✅ Successfully loaded \(schedules.count) schedules")
+            loadingState = .success
+            logger.info("✅ loadSchedules: Successfully loaded and cached \(schedules.count) schedules")
             
         } catch {
             let wrappedError = await wrapError(error, context: "loading schedules")
@@ -329,6 +446,17 @@ class ScheduleViewModel: ObservableObject {
                 try await self.repository.createSchedule(scheduleData: scheduleData, for: subject)
             }
             
+            // Invalidate cache for the new schedule's date
+            let scheduleDate = getDateFromSchedule(newSchedule)
+            let cacheKeyToInvalidate = cacheKey(for: scheduleDate, semester: semester)
+            invalidateCache(for: cacheKeyToInvalidate)
+
+            // Also invalidate cache for selected date if different
+            if !Calendar.current.isDate(scheduleDate, inSameDayAs: selectedDate) {
+                let selectedDateKey = cacheKey(for: selectedDate, semester: semester)
+                invalidateCache(for: selectedDateKey)
+            }
+
             // Update local state if the new schedule is for the selected date
             if isScheduleOnDate(newSchedule, date: selectedDate) {
                 schedulesList.append(newSchedule)
@@ -339,7 +467,7 @@ class ScheduleViewModel: ObservableObject {
                     todaySchedules = schedulesList
                 }
             }
-        
+            
             await checkCurrentlyActiveSchedule(for: semester)
             
             
@@ -348,8 +476,7 @@ class ScheduleViewModel: ObservableObject {
             presentScheduleCreateSheet = false
             loadingState = .success
 
-            
-            try? await Task.sleep(nanoseconds: 500_000_000)
+        
             
 //            await MainActor.run {
 //                self.showInfoAlert = true
@@ -357,11 +484,11 @@ class ScheduleViewModel: ObservableObject {
 //                self.infoAlertMessage = "Schedule for \(subject.subjectName ?? "Untitled Subject") on \(formattedSelectedDate) has been added successfully."
 //            }
             
-            await MainActor.run {
+            
                 self.masterViewModel.showAlert = true
                 self.masterViewModel.alertTitle = "Schedule Added"
                 self.masterViewModel.alertMessage = "Schedule for \(subject.subjectName?.lowercased() ?? "Untitled Subject") on \(formattedSelectedDate) has been added successfully."
-            }
+            
             
             logger.info("✅ Schedule created successfully")
             return newSchedule
@@ -433,6 +560,16 @@ class ScheduleViewModel: ObservableObject {
                 try await self.repository.updateSchedule(scheduleId: scheduleId, scheduleData: scheduleData, for: subject)
             }
             
+            // Invalidate cache for both old and new schedule dates
+            let oldScheduleDate = getDateFromSchedule(editingSchedule)
+            let newScheduleDate = getDateFromSchedule(updatedSchedule)
+            invalidateCache(for: cacheKey(for: oldScheduleDate, semester: semester))
+            invalidateCache(for: cacheKey(for: newScheduleDate, semester: semester))
+
+            // Also invalidate selected date cache if different
+            let selectedDateKey = cacheKey(for: selectedDate, semester: semester)
+            invalidateCache(for: selectedDateKey)
+
             // Update local state
             if let index = schedulesList.firstIndex(where: { $0.scheduleId == scheduleId }) {
                 if isScheduleOnDate(updatedSchedule, date: selectedDate) {
@@ -448,7 +585,6 @@ class ScheduleViewModel: ObservableObject {
                     todaySchedules = schedulesList
                 }
             }
-            
             // Clear form and close sheet
             clearForm()
             clearEditingState()
@@ -482,9 +618,18 @@ class ScheduleViewModel: ObservableObject {
                 try await self.repository.deleteSchedule(scheduleId: scheduleId)
             }
             
+            // Invalidate cache for the deleted schedule's date
+            let scheduleDate = getDateFromSchedule(schedule)
+            let cacheKeyToInvalidate = cacheKey(for: scheduleDate, semester: nil) // We don't have semester context here
+            invalidateCache(for: cacheKeyToInvalidate)
+
+            // Also invalidate selected date cache
+            let selectedDateKey = cacheKey(for: selectedDate, semester: nil)
+            invalidateCache(for: selectedDateKey)
+
             // Update local state
             schedulesList.removeAll { $0.scheduleId == scheduleId }
-            
+
             // Update today's schedules if needed
             if Calendar.current.isDateInToday(selectedDate) {
                 todaySchedules = schedulesList
@@ -680,6 +825,51 @@ class ScheduleViewModel: ObservableObject {
     }
     
     // MARK: - Utility Methods
+    
+    func performCacheMaintenance() {
+        clearExpiredCache()
+        
+        // If cache gets too large, clear oldest entries
+        if scheduleCache.count > 50 {
+            let sortedByTime = cacheTimestamps.sorted { $0.value < $1.value }
+            let keysToRemove = Array(sortedByTime.prefix(20).map { $0.key })
+            
+            for key in keysToRemove {
+                scheduleCache.removeValue(forKey: key)
+                cacheTimestamps.removeValue(forKey: key)
+            }
+            
+            logger.debug("🧹 Removed \(keysToRemove.count) oldest cache entries")
+        }
+    }
+    
+    /// Extracts the date that corresponds to a schedule based on its day
+    private func getDateFromSchedule(_ schedule: Schedule) -> Date {
+        guard let scheduleDay = schedule.scheduleDay else { return selectedDate }
+        
+        // Find the most recent date that matches the schedule's day
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Get weekday number (1 = Sunday, 2 = Monday, etc.)
+        let targetWeekday: Int
+        switch scheduleDay {
+        case "Sunday": targetWeekday = 1
+        case "Monday": targetWeekday = 2
+        case "Tuesday": targetWeekday = 3
+        case "Wednesday": targetWeekday = 4
+        case "Thursday": targetWeekday = 5
+        case "Friday": targetWeekday = 6
+        case "Saturday": targetWeekday = 7
+        default: targetWeekday = calendar.component(.weekday, from: today)
+        }
+        
+        // Find the date for this weekday in the current week
+        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)
+        components.weekday = targetWeekday
+        
+        return calendar.date(from: components) ?? today
+    }
     func clearForm() {
         scheduleStartTime = Date()
         scheduleEndTime = Date().addingTimeInterval(3600)

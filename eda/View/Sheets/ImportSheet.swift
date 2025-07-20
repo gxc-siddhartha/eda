@@ -20,85 +20,165 @@ struct ImportSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if(masterViewModel.selectedScheduleFileName == nil) {
-                    Section {
-                        if(masterViewModel.selectedSubjectFileName != nil) {
-                            Text(masterViewModel.selectedSubjectFileName!)
-                                .foregroundStyle(.secondary)
-                        }
-                        Button {
-                            importType = "Subject"
-                            showSubjectFileImporter = true
-                        } label: {
-                            HStack {
-                                Image(systemName: masterViewModel.isImporting ? "arrow.down.circle" : "books.vertical.fill")
-                                Text(masterViewModel.isImporting ? "Importing..." : "Import Subjects")
-                                if masterViewModel.isImporting {
-                                    Spacer()
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                }
-                            }
-                        }
-                        .disabled(masterViewModel.isImporting)
-                        
-                        
-                    } footer: {
-                        Text("You can import all of your subjects at once with the help of a .csv file. This file should contain only the subjects' information.")
-                    }
-                    
-                }
-                
-                if(masterViewModel.selectedSubjectFileName == nil ) {
-                    if(masterViewModel.selectedScheduleFileName != nil) {
-                        Text(masterViewModel.selectedScheduleFileName!)
+                // MARK: - Subject Import Section (Always Visible)
+                Section {
+                    if let fileName = masterViewModel.selectedSubjectFileName {
+                        Text(fileName)
                             .foregroundStyle(.secondary)
                     }
-                    Section {
-                        Button {
-                            importType = "Schedule"
-                            showScheduleFileImporter = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "calendar")
-                                Text("Import Schedules")
+                    
+                    Button {
+                        // Clear opposite selection when picking this type
+                        if masterViewModel.selectedScheduleFileName != nil {
+                            masterViewModel.clearScheduleSelectedFile()
+                        }
+                        
+                        // If file already selected, clear it first (allows changing selection)
+                        if masterViewModel.selectedSubjectFileName != nil {
+                            masterViewModel.clearSubjectSelectedFile()
+                        } else {
+                            // Open file picker for new selection
+                            importType = "Subject"
+                            showSubjectFileImporter = true
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: masterViewModel.isImporting && masterViewModel.currentImportType == .subjects ? "arrow.down.circle" : "books.vertical.fill")
+                            
+                            // Dynamic button text based on state
+                            if masterViewModel.isImporting && masterViewModel.currentImportType == .subjects {
+                                Text("Importing...")
+                            } else if masterViewModel.selectedSubjectFileName != nil {
+                                Text("Change Subject File")
+                            } else {
+                                Text("Select Subject File")
+                            }
+                            
+                            if masterViewModel.isImporting && masterViewModel.currentImportType == .subjects {
+                                Spacer()
+                                ProgressView()
+                                    .scaleEffect(0.8)
                             }
                         }
-                    } footer: {
-                        Text("You can import all of your schedules at once with the help of a .csv file.\nNote the name of the subjects should be exact same.")
+                    }
+                    .disabled(masterViewModel.isImporting || (masterViewModel.selectedScheduleFileName != nil && masterViewModel.selectedSubjectFileName == nil))
+                    
+                } footer: {
+                    if masterViewModel.selectedSubjectFileName != nil {
+                        Text("Subject file selected. Tap 'Import Selected File' to begin import, or 'Change Subject File' to select a different file.")
+                    } else if masterViewModel.selectedScheduleFileName != nil {
+                        Text("Schedule file is currently selected. Clear it first to select a subject file.")
+                    } else {
+                        Text("Step 1: Select a CSV file containing subject information (Name, Teacher, Color, Icon).")
                     }
                 }
                 
+                // MARK: - Schedule Import Section (Always Visible)
+                Section {
+                    if let fileName = masterViewModel.selectedScheduleFileName {
+                        Text(fileName)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Button {
+                        // Clear opposite selection when picking this type
+                        if masterViewModel.selectedSubjectFileName != nil {
+                            masterViewModel.clearSubjectSelectedFile()
+                        }
+                        
+                        // If file already selected, clear it first (allows changing selection)
+                        if masterViewModel.selectedScheduleFileName != nil {
+                            masterViewModel.clearScheduleSelectedFile()
+                        } else {
+                            // Open file picker for new selection
+                            importType = "Schedule"
+                            showScheduleFileImporter = true
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: masterViewModel.isImporting && masterViewModel.currentImportType == .schedules ? "arrow.down.circle" : "calendar")
+                            
+                            // Dynamic button text based on state
+                            if masterViewModel.isImporting && masterViewModel.currentImportType == .schedules {
+                                Text("Importing...")
+                            } else if masterViewModel.selectedScheduleFileName != nil {
+                                Text("Change Schedule File")
+                            } else {
+                                Text("Select Schedule File")
+                            }
+                            
+                            if masterViewModel.isImporting && masterViewModel.currentImportType == .schedules {
+                                Spacer()
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            }
+                        }
+                    }
+                    .disabled(masterViewModel.isImporting || (masterViewModel.selectedSubjectFileName != nil && masterViewModel.selectedScheduleFileName == nil))
+                    
+                } footer: {
+                    if masterViewModel.selectedScheduleFileName != nil {
+                        Text("Schedule file selected. Tap 'Import Selected File' to begin import, or 'Change Schedule File' to select a different file.")
+                    } else if masterViewModel.selectedSubjectFileName != nil {
+                        Text("Subject file is currently selected. Clear it first to select a schedule file.")
+                    } else {
+                        Text("Step 1: Select a CSV file containing schedule information (Subject Name, Day, Start Time, End Time, Location). Note: Subject names must match existing subjects exactly.")
+                    }
+                }
+                
+                // MARK: - Import Progress Section (Only when importing)
+                if masterViewModel.isImporting && !masterViewModel.importProgress.isEmpty {
+                    Section("Import Progress") {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text(masterViewModel.importProgress)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                    }
+                }
             }
             .navigationTitle("Import Data")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
             .toolbar {
-                if(masterViewModel.selectedSubjectFileName != nil || masterViewModel.selectedScheduleFileName != nil) {
+                // MARK: - Import Button (Step 2)
+                if masterViewModel.selectedSubjectFileName != nil || masterViewModel.selectedScheduleFileName != nil {
                     ToolbarItem(placement: .topBarTrailing) {
-                        
                         Button {
                             Task {
-                                if(masterViewModel.selectedScheduleFileName != nil) {
+                                if masterViewModel.selectedScheduleFileName != nil {
                                     masterViewModel.importSchedulesFromSelectedFile(for: semesterViewModel.selectedSemesterForUser!)
-                                } else {
+                                } else if masterViewModel.selectedSubjectFileName != nil {
                                     masterViewModel.importSubjectsFromSelectedFile(for: semesterViewModel.selectedSemesterForUser!)
                                 }
                             }
                         } label: {
-                            Text("Done").bold()
+                            if masterViewModel.isImporting {
+                                Text("Importing...").bold()
+                            } else {
+                                Text("Import Selected File").bold()
+                            }
                         }
+                        .disabled(masterViewModel.isImporting)
                     }
                 }
                 
-                ToolbarItem(placement: .topBarLeading,) {
+                // MARK: - Close Button
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
+                        // Clear selections when closing if not importing
+                        if !masterViewModel.isImporting {
+                            masterViewModel.clearSubjectSelectedFile()
+                            masterViewModel.clearScheduleSelectedFile()
+                        }
                         masterViewModel.presentImportSheet = false
                     } label: {
-                        Text("Close")
+                        Text(masterViewModel.isImporting ? "Cancel" : "Close")
                     }
+                    .disabled(masterViewModel.isImporting)
                 }
-                
             }
         }
         
@@ -125,9 +205,9 @@ struct ImportSheet: View {
                     let fileName = url.lastPathComponent
                     
                     // ✅ Pass content and filename instead of URL
-                    if (importType == "Subject") {
+                    if importType == "Subject" {
                         masterViewModel.selectSubjectCSVContent(csvContent, fileName: fileName)
-                    } else if( importType == "Schedule"){
+                    } else if importType == "Schedule" {
                         masterViewModel.selectScheduleCSVContent(csvContent, fileName: fileName)
                     }
                     
@@ -142,7 +222,6 @@ struct ImportSheet: View {
                 masterViewModel.showErrorAlert(title: "File Selection Failed", message: error.localizedDescription)
             }
         }
-        
     }
 }
 

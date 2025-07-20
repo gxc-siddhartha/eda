@@ -311,18 +311,12 @@ class SemesterViewModel: ObservableObject {
             loadingState = .success
 
             try? await Task.sleep(nanoseconds: 500_000_000)
-//            
-//            await MainActor.run {
-//                self.showInfoAlert = true
-//                self.infoAlertTitle = "Semester Added"
-//                self.infoAlertMessage = "\(selectedSemesterName) is added to your list."
-//            }
-//            
-            await MainActor.run {
+
+        
                 self.masterViewModel.showAlert = true
                 self.masterViewModel.alertTitle = "Semester Added"
                 self.masterViewModel.alertMessage = "\(selectedSemesterName) is added to your semesters' list. You can now add subjects to this semester."
-            }
+        
             
             logger.info("✅ Semester created successfully: \(newSemester.semesterName ?? "unnamed")")
             return newSemester
@@ -364,18 +358,16 @@ class SemesterViewModel: ObservableObject {
                     semesterList[idx] = updated
                 }
                 
-                await MainActor.run {
+        
                     presentSemesterEditSheet = false
                     presentManageSemestersSheet = false
-                }
+                
                 
  
-                await MainActor.run {
                     self.masterViewModel.showAlert = true
                     self.masterViewModel.alertTitle = "Semester Updated"
                     self.masterViewModel.alertMessage = "\(name) has been updated."
                    
-                }
                 
                 // exit edit‐mode
                 editingSemester = nil
