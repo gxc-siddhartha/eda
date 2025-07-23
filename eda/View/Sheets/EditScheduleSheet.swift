@@ -27,15 +27,6 @@ struct EditScheduleSheet: View {
                         }
 
                     }.pickerStyle(.menu).disabled(true)
-                        .onAppear {
-                            Task {
-                                if !subjectViewModel.subjectsList.isEmpty {
-                                    scheduleViewModel.selectedSubject =
-                                        subjectViewModel.subjectsList.first
-                                }
-                            }
-                        }
-
                 }
 
                 Section("Semester Details") {
@@ -88,24 +79,26 @@ struct EditScheduleSheet: View {
                                     )
                             }
                         } label: {
-                            Text("Done")
+                            Text("Done").bold()
                         }
                     }
 
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             scheduleViewModel.presentScheduleEditSheet = false
+                            scheduleViewModel.clearForm()
+                            scheduleViewModel.clearAlerts()
                         } label: {
                             Text("Close")
                         }
                     }
                 }
                 .alert(
-                    isPresented: $semesterViewModel.showErrorAlert,
+                    isPresented: $scheduleViewModel.showErrorAlert,
                     content: {
                         Alert(
-                            title: Text(semesterViewModel.alertTitle),
-                            message: Text(semesterViewModel.alertMessage),
+                            title: Text( scheduleViewModel.alertTitle),
+                            message: Text(scheduleViewModel.alertMessage),
                             dismissButton: .default(Text("Ok"))
                         )
                     }

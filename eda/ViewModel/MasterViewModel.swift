@@ -42,6 +42,10 @@ class MasterViewModel: ObservableObject {
     @Published var selectedScheduleFileName: String?
     @Published var importState: ImportState = .idle
     @Published var currentImportType: ImportType = .subjects
+    
+    // ✅ ADD THIS - Notification status tracking (optional)
+        @Published var notificationPermissionStatus: UNAuthorizationStatus = .notDetermined
+        @Published var scheduledNotificationCount: Int = 0
 
     // MARK: - Import Results
     @Published var lastImportResult: BulkImportResult?
@@ -404,6 +408,17 @@ class MasterViewModel: ObservableObject {
         showAlert = false
         alertTitle = ""
         alertMessage = ""
+    }
+    
+    // ✅ ADD THIS - Notification status methods (optional)
+    func updateNotificationStatus() async {
+        let status = await NotificationManager.shared.checkPermissionStatus()
+        let count = await NotificationManager.shared.getScheduledReminderCount()
+        
+        await MainActor.run {
+            self.notificationPermissionStatus = status
+            self.scheduledNotificationCount = count
+        }
     }
 
     // MARK: - Private Helpers

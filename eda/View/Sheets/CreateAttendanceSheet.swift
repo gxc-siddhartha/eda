@@ -183,8 +183,8 @@ struct CreateAttendanceSheet: View {
 
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        attendanceViewModel.clearForm()
                         attendanceViewModel.presentAttendanceCreateSheet = false
+                        attendanceViewModel.clearForm()
                     } label: {
                         Text("Close")
                     }

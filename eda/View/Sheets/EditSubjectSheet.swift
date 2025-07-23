@@ -101,8 +101,11 @@ struct EditSubjectSheet: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             subjectViewModel.presentSubjectEditSheet = false
+                            subjectViewModel.clearForm()
+                            subjectViewModel.clearAlerts()
                         } label: {
                             Text("Close")
+                            
                         }
                     }
                 }

@@ -37,6 +37,12 @@ struct edaApp: App {
                             await scheduleViewModel.initialize(with: semesterViewModel.selectedSemesterForUser!)
                         }
                     }
+                    
+                    // ✅ ADD THIS - Notification initialization
+                       await NotificationAppLaunchHelper.initializeNotificationsOnAppLaunch(
+                           semesterViewModel: semesterViewModel,
+                           subjectViewModel: subjectViewModel
+                       )
                 }
         }
     }

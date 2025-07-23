@@ -148,10 +148,13 @@ class ScheduleViewModel: ObservableObject {
 
     // MARK: - Dependencies
     private let repository: ScheduleRepository
-    private let logger = Logger(
+    let logger = Logger(
         subsystem: "com.eda.app",
         category: "ScheduleViewModel"
     )
+    
+    // ✅ ADD THIS - Reference to current semester for notifications
+        @Published var currentSemester: Semester? = nil
 
     // MARK: - Published Properties
     @Published var schedulesList: [Schedule] = []
@@ -204,6 +207,9 @@ class ScheduleViewModel: ObservableObject {
 
     // MARK: - Initialization Method
     func initialize(with semester: Semester?) async {
+        // ✅ ADD THIS - Store semester reference
+            self.currentSemester = semester
+        
         logger.info(
             "🚀 Initializing ScheduleViewModel with semester: \(semester?.semesterName ?? "nil")"
         )
@@ -537,7 +543,6 @@ class ScheduleViewModel: ObservableObject {
 
             await checkCurrentlyActiveSchedule(for: semester)
 
-            clearForm()
             presentScheduleCreateSheet = false
             loadingState = .success
 
@@ -551,8 +556,15 @@ class ScheduleViewModel: ObservableObject {
             self.masterViewModel.alertTitle = "Schedule Added"
             self.masterViewModel.alertMessage =
                 "Schedule for \(subject.subjectName?.lowercased() ?? "Untitled Subject") on \(formattedSelectedDate) has been added successfully."
+            
+            // ✅ ADD THIS - Request permission and refresh notifications
+               Task {
+                   await requestNotificationPermissionAfterFirstSchedule()
+               }
+
 
             logger.info("✅ Schedule created successfully")
+            clearForm()
             return newSchedule
 
         } catch {
@@ -617,7 +629,9 @@ class ScheduleViewModel: ObservableObject {
                 let error = ScheduleViewModelError.timeConflict(
                     "This time slot conflicts with an existing schedule"
                 )
-                await handleError(error, operation: "update schedule")
+                showErrorAlert = true
+                alertTitle = "Time Conflict"
+                alertMessage = "This time slot conflicts with an existing schedule"
                 throw error
             }
 
@@ -687,6 +701,11 @@ class ScheduleViewModel: ObservableObject {
                 title: "Schedule Updated",
                 message: "Schedule has been updated successfully!"
             )
+            
+            // ✅ ADD THIS - Refresh notifications after update
+            Task {
+                await refreshNotificationsAfterScheduleChange()
+            }
 
             logger.info("✅ Schedule updated successfully")
             return updatedSchedule
@@ -754,6 +773,12 @@ class ScheduleViewModel: ObservableObject {
                 title: "Schedule Deleted",
                 message: "Schedule has been deleted successfully."
             )
+            
+            // ✅ ADD THIS - Refresh notifications after deletion
+              Task {
+                  await refreshNotificationsAfterScheduleChange()
+              }
+
 
             logger.info("✅ Schedule deleted successfully")
 
@@ -815,12 +840,12 @@ class ScheduleViewModel: ObservableObject {
         )
         editingSchedule = schedule
         // Populate form with current values
-        scheduleStartTime = schedule.scheduleStartTime ?? Date()
+        scheduleStartTime = editingSchedule?.scheduleStartTime ?? Date()
         scheduleEndTime =
-            schedule.scheduleEndTime ?? Date().addingTimeInterval(3600)
-        scheduleDay = schedule.scheduleDay ?? "Monday"
-        scheduleLocation = schedule.scheduleLocation ?? ""
-        selectedSubject = schedule.subject
+        editingSchedule?.scheduleEndTime ?? Date().addingTimeInterval(3600)
+        scheduleDay = editingSchedule?.scheduleDay ?? "Monday"
+        scheduleLocation = editingSchedule?.scheduleLocation ?? ""
+        selectedSubject = editingSchedule?.subject
 
         presentScheduleEditSheet = true
     }
@@ -943,7 +968,7 @@ class ScheduleViewModel: ObservableObject {
             "❌ Error in \(operation): \(wrappedError.localizedDescription)"
         )
 
-        alertTitle = "Oops, we got stuck!"
+        alertTitle = "Heads Up!"
         alertMessage = wrappedError.localizedDescription
         showRetryOption = showRetry
         showErrorAlert = true

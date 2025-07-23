@@ -232,6 +232,13 @@ struct HomeView: View {
                 if newPhase == .active {
                     guard semesterViewModel.selectedSemesterForUser != nil
                     else { return }
+                    
+                    // ✅ ADD THIS - Notification maintenance on app activation
+                          Task {
+                              await NotificationAppLaunchHelper.performPeriodicMaintenance(
+                                  for: semesterViewModel
+                              )
+                          }
 
                     Task {
                         // Use lightweight refresh for app returns (better UX)
@@ -395,6 +402,11 @@ struct HomeView: View {
         }
 
         logger.debug("✅ Completed refreshing all data")
+        
+        // ✅ ADD THIS - Schedule notifications for refreshed semester
+            Task {
+                await semesterViewModel.scheduleNotificationsForSelectedSemester(semester)
+            }   
     }
 
     /// Quick refresh for active schedule only (lighter operation)

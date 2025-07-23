@@ -78,6 +78,8 @@ struct CreateSemesterSheet: View {
                         Button {
                             semesterViewModel.presentSemesterDetailsSheet =
                                 false
+                            semesterViewModel.clearForm()
+                            semesterViewModel.clearAlerts()
                         } label: {
                             Text("Close")
                         }

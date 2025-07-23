@@ -40,6 +40,12 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            
+            // ✅ ADD THIS - Update notification status when app appears
+               Task {
+                   await masterViewModel.updateNotificationStatus()
+               }
+            
             MasterViewModel.shared.subjectViewModel = subjectViewModel
             MasterViewModel.shared.scheduleViewModel = scheduleViewModel
         }

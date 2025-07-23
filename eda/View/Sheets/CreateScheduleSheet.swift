@@ -95,17 +95,19 @@ struct CreateScheduleSheet: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             scheduleViewModel.presentScheduleCreateSheet = false
+                            scheduleViewModel.clearForm()
+                            scheduleViewModel.clearAlerts()
                         } label: {
                             Text("Close")
                         }
                     }
                 }
                 .alert(
-                    isPresented: $semesterViewModel.showErrorAlert,
+                    isPresented: $scheduleViewModel.showErrorAlert,
                     content: {
                         Alert(
-                            title: Text(semesterViewModel.alertTitle),
-                            message: Text(semesterViewModel.alertMessage),
+                            title: Text(scheduleViewModel.alertTitle),
+                            message: Text(scheduleViewModel.alertMessage),
                             dismissButton: .default(Text("Ok"))
                         )
                     }

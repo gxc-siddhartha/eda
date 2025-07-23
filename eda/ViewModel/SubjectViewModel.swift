@@ -126,7 +126,7 @@ class SubjectViewModel: ObservableObject {
 
     // MARK: - Dependencies
     private let repository: SubjectRepository
-    private let logger = Logger(
+    let logger = Logger(
         subsystem: "com.eda.app",
         category: "SubjectViewModel"
     )
@@ -399,7 +399,12 @@ class SubjectViewModel: ObservableObject {
 
             self.masterViewModel.showAlert = true
             self.masterViewModel.alertTitle = "Subject Created"
-            self.masterViewModel.alertMessage = "..."
+            self.masterViewModel.alertMessage = "\(subjectName) has been created. You can now add schedules for this subject."
+            
+            // ✅ ADD THIS - Request permission after first subject
+               Task {
+                   await requestNotificationPermissionAfterFirstSubject()
+               }
 
             logger.info(
                 "✅ Subject created successfully: \(newSubject.subjectName ?? "unnamed")"

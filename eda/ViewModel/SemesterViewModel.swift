@@ -114,7 +114,7 @@ class SemesterViewModel: ObservableObject {
 
     // MARK: - Dependencies
     private let repository: SemesterRepository
-    private let logger = Logger(
+    let logger = Logger(
         subsystem: "com.eda.app",
         category: "SemesterViewModel"
     )
@@ -217,6 +217,12 @@ class SemesterViewModel: ObservableObject {
 
             isInitialized = true
             loadingState = .success
+            
+            // ✅ ADD THIS - Perform maintenance during initialization
+            Task {
+                  await performNotificationMaintenance()
+            }
+
             logger.info(
                 "✅ SemesterViewModel initialization completed successfully"
             )
@@ -344,6 +350,11 @@ class SemesterViewModel: ObservableObject {
             self.masterViewModel.alertTitle = "Semester Added"
             self.masterViewModel.alertMessage =
                 "\(selectedSemesterName) is added to your semesters' list. You can now add subjects to this semester."
+            
+            // ✅ ADD THIS - Request permission after first semester
+               Task {
+                   await requestNotificationPermissionAfterFirstSemester()
+               }
 
             logger.info(
                 "✅ Semester created successfully: \(newSemester.semesterName ?? "unnamed")"
@@ -433,6 +444,11 @@ class SemesterViewModel: ObservableObject {
                 message:
                     "'\(semester.semesterName ?? "Semester")' is now your active semester."
             )
+            
+            // ✅ ADD THIS - Schedule notifications for new semester
+             Task {
+                 await scheduleNotificationsForSelectedSemester(semester)
+             }
 
             logger.info(
                 "✅ Semester selected successfully: \(semester.semesterName ?? "unnamed")"
@@ -456,6 +472,11 @@ class SemesterViewModel: ObservableObject {
             await handleError(error, operation: "delete semester")
             throw error
         }
+        
+        // ✅ ADD THIS - Cancel notifications before deletion
+         Task {
+             await cancelNotificationsForSemester(semester)
+         }
 
         logger.info(
             "🗑️ Deleting semester: \(semester.semesterName ?? "unnamed")"
@@ -483,6 +504,10 @@ class SemesterViewModel: ObservableObject {
             }
 
             loadingState = .success
+            
+           
+
+            
             logger.info(
                 "✅ Semester deleted successfully: \(semester.semesterName ?? "unnamed")"
             )

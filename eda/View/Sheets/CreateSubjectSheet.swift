@@ -103,11 +103,23 @@ struct CreateSubjectSheet: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             subjectViewModel.presentSubjectCreateSheet = false
+                            subjectViewModel.clearForm()
                         } label: {
                             Text("Close")
                         }
                     }
                 }
+            // ✅ ADDED: Missing error alert
+                        .alert(isPresented: $subjectViewModel.showErrorAlert) {
+                            Alert(
+                                title: Text(subjectViewModel.alertTitle),
+                                message: Text(subjectViewModel.alertMessage),
+                                dismissButton: .default(Text("OK")) {
+                                    subjectViewModel.clearAlerts()
+                                }
+                            )
+                        }
+
             //                .alert(isPresented: $semesterViewModel.showErrorAlert, content: {
             //                    Alert(title: Text(semesterViewModel.alertTitle), message: Text(semesterViewModel.alertMessage), dismissButton: .default(Text("Ok")))
             //                })

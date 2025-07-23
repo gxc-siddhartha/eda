@@ -74,8 +74,11 @@ struct EditSemesterSheet: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             semesterViewModel.presentSemesterEditSheet = false
+                            semesterViewModel.clearForm()
+                            semesterViewModel.clearAlerts()
                         } label: {
                             Text("Close")
+                            
                         }
                     }
                 }

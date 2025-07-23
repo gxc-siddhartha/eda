@@ -32,7 +32,7 @@ struct EditAttendanceSheet: View {
                         .pickerStyle(.menu)
                         .disabled(attendanceViewModel.loadingState.isLoading)
                     }
-                    .frame(height:22)
+                    .frame(height: 22)
 
                     Picker(
                         "Presence Status",
@@ -48,7 +48,7 @@ struct EditAttendanceSheet: View {
                         .pickerStyle(.segmented)
                         .disabled(attendanceViewModel.loadingState.isLoading)
                     }
-                    .frame(height:22)
+                    .frame(height: 22)
 
                     if attendanceViewModel.attendanceType == "Other" {
 
@@ -81,10 +81,10 @@ struct EditAttendanceSheet: View {
                             .minAllowedDate...attendanceViewModel.maxAllowedDate,
                         displayedComponents: .date
                     )
-                    
+
                     .datePickerStyle(.compact)
                     .disabled(attendanceViewModel.loadingState.isLoading)
-                    .frame(height:22)
+                    .frame(height: 22)
 
                     if let allowedWeekday = attendanceViewModel.allowedWeekday {
                         Text("Must be a \(allowedWeekday)")
@@ -99,7 +99,7 @@ struct EditAttendanceSheet: View {
                     )
                     .datePickerStyle(.compact)
                     .disabled(attendanceViewModel.loadingState.isLoading)
-                    .frame(height:22)
+                    .frame(height: 22)
 
                     DatePicker(
                         "End Time",
@@ -108,7 +108,7 @@ struct EditAttendanceSheet: View {
                     )
                     .datePickerStyle(.compact)
                     .disabled(attendanceViewModel.loadingState.isLoading)
-                    .frame(height:22)
+                    .frame(height: 22)
 
                     // Time validation warning
                     if attendanceViewModel.attendanceStartTime
@@ -147,6 +147,7 @@ struct EditAttendanceSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         attendanceViewModel.cancelEditing()
+                        attendanceViewModel.clearForm()
                         dismiss()
                     }
                     .disabled(attendanceViewModel.loadingState.isLoading)
@@ -192,14 +193,7 @@ struct EditAttendanceSheet: View {
         } message: {
             Text(attendanceViewModel.alertMessage)
         }
-        .alert("Success", isPresented: $attendanceViewModel.showSuccessAlert) {
-            Button("OK") {
-                attendanceViewModel.clearAlerts()
-                dismiss()
-            }
-        } message: {
-            Text(attendanceViewModel.alertMessage)
-        }
+
         .onAppear {
             // Ensure we're in edit mode when the sheet appears
             if attendanceViewModel.editingAttendance == nil {
