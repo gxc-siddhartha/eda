@@ -58,9 +58,9 @@ enum AttendanceRepositoryError: LocalizedError {
 
 // MARK: - Core Data Repository Implementation
 class AttendanceRepository {
-    private let persistentContainer: NSPersistentContainer
-    private let backgroundContext: NSManagedObjectContext
-    private let logger = Logger(
+    let persistentContainer: NSPersistentContainer
+    let backgroundContext: NSManagedObjectContext
+    let logger = Logger(
         subsystem: "com.eda.app",
         category: "AttendanceRepository"
     )

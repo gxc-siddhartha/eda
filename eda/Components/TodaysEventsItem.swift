@@ -62,6 +62,7 @@ struct TodaysEventsItem: View {
                 }
             }
             Spacer()
-        }.padding(12)
+        }.padding(.vertical)
+            .padding(.leading)
     }
 }

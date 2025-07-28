@@ -64,21 +64,21 @@ struct DailyReminderTime {
     static let morningReminder = DailyReminderTime(
         hour: 9,
         minute: 0,
-        message: "Good morning! Time to check today's class schedule ☀️",
+        message: "🌅 Good morning! Let's check what's going on today.",
         identifier: "morning-reminder"
     )
     
     static let afternoonReminder = DailyReminderTime(
         hour: 13,
         minute: 0,
-        message: "Afternoon check-in! How's your attendance today? 📚",
+        message: "🌇 Afternoon slugger! Check your attendance.",
         identifier: "afternoon-reminder"
     )
     
     static let eveningReminder = DailyReminderTime(
-        hour: 17,
+        hour: 18,
         minute: 0,
-        message: "Evening wrap-up! Review your day's attendance 🌅",
+        message: "🌄 Evening! Wrap up your day.",
         identifier: "evening-reminder"
     )
     
@@ -485,7 +485,7 @@ class NotificationManager: ObservableObject {
         
         // Create notification content
         let content = UNMutableNotificationContent()
-        content.title = "EDA - Class Tracker"
+        content.title = "eda"
         content.body = reminderTime.message
         content.sound = .default
         content.badge = 1

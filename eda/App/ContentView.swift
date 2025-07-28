@@ -16,6 +16,7 @@ struct ContentView: View {
     @EnvironmentObject private var subjectViewModel: SubjectViewModel
     @EnvironmentObject private var scheduleViewModel: ScheduleViewModel
     @EnvironmentObject private var attendanceViewModel: AttendanceViewModel
+    @EnvironmentObject private var bulkAttendanceViewModel: BulkAttendanceViewModel
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -90,7 +91,7 @@ struct ContentView: View {
         .sheet(isPresented: $attendanceViewModel.presentAttendanceEditSheet) {
             EditAttendanceSheet()
                 .presentationDragIndicator(.visible)
-
+            
         }
         .alert(isPresented: $masterViewModel.showAlert) {
             Alert(

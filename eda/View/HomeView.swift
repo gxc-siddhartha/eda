@@ -14,6 +14,7 @@ struct HomeView: View {
     @EnvironmentObject private var subjectViewModel: SubjectViewModel
     @EnvironmentObject private var scheduleViewModel: ScheduleViewModel
     @EnvironmentObject private var attendanceViewModel: AttendanceViewModel
+    @EnvironmentObject private var bulkAttendanceViewModel: BulkAttendanceViewModel
     private var masterViewModel: MasterViewModel = MasterViewModel.shared
 
     @State private var presentConfirmationDialog: Bool = false
@@ -93,9 +94,15 @@ struct HomeView: View {
             List {
                 if !$scheduleViewModel.todaySchedules.isEmpty {
                     Section("Today's Events") {
-                        TodaysEventsItem(
-                            todaysSchedules: scheduleViewModel.todaySchedules
-                        ).listRowInsets(EdgeInsets())
+                        NavigationLink(destination: BulkAttendanceSheet(),) {
+                            TodaysEventsItem(
+                                todaysSchedules: scheduleViewModel.todaySchedules
+                            )
+                        
+                                
+                            
+                        }.listRowInsets(EdgeInsets())
+                            .padding(.trailing)
                     }
                 }
 
